@@ -1,3 +1,3 @@
 # FastHistogram
 
-A description of this package.
+GPU-based image RGBL histogram calculation and rendering.
