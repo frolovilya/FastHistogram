@@ -1,8 +1,6 @@
 #ifndef Common_h
 #define Common_h
 
-#import <simd/simd.h>
-
 enum HistogramLayer {
     Red = 0,
     Green = 1,
@@ -14,8 +12,8 @@ enum HistogramGeneratorInputIndex {
     HistogramGeneratorInputIndexTexture,
     HistogramGeneratorInputIndexBinsCount,
     HistogramGeneratorInputIndexIsLinear,
-    HistogramGeneratorInputIndexResultBuffer,
-    HistogramGeneratorInputIndexMaxBinValue
+    HistogramGeneratorInputIndexHistogramBuffer,
+    HistogramGeneratorInputIndexMaxBinValueBuffer
 };
 
 enum HistogramVertexInputIndex {

@@ -2,6 +2,8 @@
 #include "../../CShaderHeader/include/Common.h"
 using namespace metal;
 
+constant const uint RGBL_4 = 4;
+
 struct VertexIn {
     float2 position;
 };
@@ -28,10 +30,10 @@ vertex RasterizerData histogram_bar_vertex(uint vertexId [[ vertex_id ]],
     // green - 1
     // blue - 2
     // alpha - 3
-    uint layerIndex = instanceId % 4;
+    uint layerIndex = instanceId % RGBL_4;
     
     // rgbl data is packed into uint4 in the input histogram buffer
-    uint binIndex = instanceId / 4;
+    uint binIndex = instanceId / RGBL_4;
     
     // normalized bar height value
     float height = histogramBuffer[instanceId] / float(maxBinValue[layerIndex]);

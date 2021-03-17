@@ -28,6 +28,9 @@ let package = Package(
             dependencies: ["CShaderHeader"]),
         .testTarget(
             name: "FastHistogramTests",
-            dependencies: ["FastHistogram"]),
+            dependencies: ["FastHistogram"],
+            resources: [
+                .process("Resources")
+            ]),
     ]
 )

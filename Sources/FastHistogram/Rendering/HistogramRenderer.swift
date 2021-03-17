@@ -101,7 +101,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         commandEncoder.drawPrimitives(type: .triangle,
                                       vertexStart: 0,
                                       vertexCount: barVertices.count,
-                                      instanceCount: Int(binsCount) * 4)
+                                      instanceCount: Int(binsCount) * RGBL_4)
                         
         // finish commands encoding
         commandEncoder.endEncoding()

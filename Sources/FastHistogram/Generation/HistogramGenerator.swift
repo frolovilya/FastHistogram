@@ -6,7 +6,10 @@ import CShaderHeader
 public class HistogramGenerator {
     
     private let gpuHandler: GPUHandler
-    private let computePipelineState: MTLComputePipelineState
+    
+    private let zeroHistogramBufferComputePipelineState: MTLComputePipelineState
+    private let zeroMaxBinValueBufferComputePipelineState: MTLComputePipelineState
+    private let generateHistogramComputePipelineState: MTLComputePipelineState
     
     private var binsCount: simd_uint1
 
@@ -20,28 +23,37 @@ public class HistogramGenerator {
         self.gpuHandler = gpuHandler
         self.binsCount = binsCount
         
-        // init compute pipeline state
-        guard let generateHistogramFunction = gpuHandler.library.makeFunction(name: "generate_histogram")
-        else { throw GPUOperationError.initializationError }
-        computePipelineState = try gpuHandler.device.makeComputePipelineState(function: generateHistogramFunction)
-        
+        // init compute pipeline states
+        self.generateHistogramComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "generateHistogram")
+        self.zeroHistogramBufferComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "zeroHistogramBuffer")
+        self.zeroMaxBinValueBufferComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "zeroMaxBinValueBuffer")
+                
         // init result buffer
-        guard let histogramBuffer = gpuHandler.device.makeBuffer(length: MemoryLayout<simd_uint1>.stride * Int(binsCount) * 4,
+        guard let histogramBuffer = gpuHandler.device.makeBuffer(length: MemoryLayout<simd_uint1>.stride * Int(binsCount) * RGBL_4,
                                                                  options: .storageModeShared)
         else { throw GPUOperationError.initializationError }
         self.histogramBuffer = histogramBuffer
         
-        guard let maxBinValueBuffer = gpuHandler.device.makeBuffer(length: MemoryLayout<simd_uint1>.stride * 4,
+        guard let maxBinValueBuffer = gpuHandler.device.makeBuffer(length: MemoryLayout<simd_uint1>.stride * RGBL_4,
                                                                    options: .storageModeShared)
         else { throw GPUOperationError.initializationError }
         self.maxBinValueBuffer = maxBinValueBuffer
     }
     
-    public func process(cgImage: CGImage) -> Void {
+    private static func initComputePipelineState(gpuHandler: GPUHandler, functionName: String) throws -> MTLComputePipelineState {
+        if let computeFunction = gpuHandler.library.makeFunction(name: functionName) {
+            return try gpuHandler.device.makeComputePipelineState(function: computeFunction)
+        } else {
+            throw GPUOperationError.initializationError
+        }
+    }
+    
+    public func process(cgImage: CGImage,
+                        isLinear: Bool) -> Void {
         if let texture = try? MTKTextureLoader(device: gpuHandler.device).newTexture(cgImage: cgImage, options: nil) {
             histogramGenerationPass(texture: texture,
                                     size: MTLSizeMake(cgImage.width, cgImage.height, 1),
-                                    isLinear: false)
+                                    isLinear: isLinear)
         } else {
             print("Unable to generate texture from input image")
         }
@@ -58,7 +70,49 @@ public class HistogramGenerator {
             return
         }
         
-        commandEncoder.setComputePipelineState(computePipelineState)
+        encodeZeroHistogramBuffer(commandEncoder: commandEncoder)
+        encodeZeroMaxBinValueBuffer(commandEncoder: commandEncoder)
+        encodeGenerateHistogram(commandEncoder: commandEncoder, texture: texture, size: size, isLinear: isLinear)
+        
+        commandEncoder.endEncoding()
+        commandBuffer.commit()
+        
+        commandBuffer.waitUntilCompleted()
+    }
+    
+    private func encodeZeroHistogramBuffer(commandEncoder: MTLComputeCommandEncoder) {
+        commandEncoder.setComputePipelineState(zeroHistogramBufferComputePipelineState)
+
+        commandEncoder.setBuffer(histogramBuffer,
+                                 offset: 0,
+                                 index: Int(HistogramGeneratorInputIndexHistogramBuffer.rawValue))
+        
+        let gridSize = MTLSizeMake(Int(binsCount) * RGBL_4, 1, 1)
+        let threadsPerGroup = MTLSizeMake(min(zeroHistogramBufferComputePipelineState.maxTotalThreadsPerThreadgroup, Int(binsCount) * RGBL_4), 1, 1)
+        
+        commandEncoder.dispatchThreads(gridSize,
+                                       threadsPerThreadgroup: threadsPerGroup)
+    }
+    
+    private func encodeZeroMaxBinValueBuffer(commandEncoder: MTLComputeCommandEncoder) {
+        commandEncoder.setComputePipelineState(zeroMaxBinValueBufferComputePipelineState)
+
+        commandEncoder.setBuffer(maxBinValueBuffer,
+                                 offset: 0,
+                                 index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
+
+        let gridSize = MTLSizeMake(RGBL_4, 1, 1)
+        let threadsPerGroup = MTLSizeMake(min(zeroMaxBinValueBufferComputePipelineState.maxTotalThreadsPerThreadgroup, RGBL_4), 1, 1)
+        
+        commandEncoder.dispatchThreads(gridSize,
+                                       threadsPerThreadgroup: threadsPerGroup)
+    }
+    
+    private func encodeGenerateHistogram(commandEncoder: MTLComputeCommandEncoder,
+                                         texture: MTLTexture,
+                                         size: MTLSize,
+                                         isLinear: simd_bool) {
+        commandEncoder.setComputePipelineState(generateHistogramComputePipelineState)
 
         // init buffers
         commandEncoder.setTexture(texture,
@@ -75,44 +129,19 @@ public class HistogramGenerator {
         
         commandEncoder.setBuffer(histogramBuffer,
                                  offset: 0,
-                                 index: Int(HistogramGeneratorInputIndexResultBuffer.rawValue))
+                                 index: Int(HistogramGeneratorInputIndexHistogramBuffer.rawValue))
         
         commandEncoder.setBuffer(maxBinValueBuffer,
                                  offset: 0,
-                                 index: Int(HistogramGeneratorInputIndexMaxBinValue.rawValue))
+                                 index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
 
         // init grid size
-        let w = computePipelineState.threadExecutionWidth
-        let h = computePipelineState.maxTotalThreadsPerThreadgroup / w
+        let w = generateHistogramComputePipelineState.threadExecutionWidth
+        let h = generateHistogramComputePipelineState.maxTotalThreadsPerThreadgroup / w
         let threadsPerGroup = MTLSizeMake(w, h, 1)
 
         commandEncoder.dispatchThreads(size,
                                        threadsPerThreadgroup: threadsPerGroup)
-        
-        commandEncoder.endEncoding()
-        commandBuffer.commit()
-        
-        commandBuffer.waitUntilCompleted()
+    }
 
-        printBufferContents()
-    }
-    
-    private func printBufferContents() -> Void {
-        let histogramPointer = histogramBuffer.contents().bindMemory(to: simd_uint1.self,
-                                                                     capacity: Int(binsCount) * 4)
-        
-        var bins: [simd_uint1] = []
-        for i in 0..<(binsCount * 4) {
-            bins.append(histogramPointer.advanced(by: Int(i)).pointee)
-        }
-        print("bins = \(bins)")
-        
-        let maxBinValuePointer = maxBinValueBuffer.contents().bindMemory(to: simd_uint1.self, capacity: 4)
-        var maxValues: [simd_uint1] = []
-        for i in 0..<4 {
-            maxValues.append(maxBinValuePointer.advanced(by: i).pointee)
-        }
-        print("maxBinValues = \(maxValues)")
-    }
-    
 }
