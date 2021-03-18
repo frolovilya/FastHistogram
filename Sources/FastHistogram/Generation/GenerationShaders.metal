@@ -31,7 +31,7 @@ unsigned int normalizedValueToBinIndex(float value, unsigned int binsCount) {
  Calculate luminocity for a given RGB value.
  https://en.wikipedia.org/wiki/Relative_luminance
  */
-float sRGBToRelativeLuminance(simd_float3 rgb) {
+float sRGBToRelativeLuminance(float3 rgb) {
     return (RED_PERCEPTION * rgb[Red] + GREEN_PERCEPTION * rgb[Green] + BLUE_PERCEPTION * rgb[Blue]);
 }
 
@@ -76,13 +76,13 @@ kernel void generateHistogram(texture2d<float, access::read> frame [[ texture(Hi
     // calculate relative luminance
     float luminance = sRGBToRelativeLuminance(rgb);
     
-    uint4 rgblBins = uint4(normalizedValueToBinIndex(rgb[Red], binsCount),
-                           normalizedValueToBinIndex(rgb[Green], binsCount),
-                           normalizedValueToBinIndex(rgb[Blue], binsCount),
-                           normalizedValueToBinIndex(luminance, binsCount));
+    uint4 rgblBin = uint4(normalizedValueToBinIndex(rgb[Red], binsCount),
+                          normalizedValueToBinIndex(rgb[Green], binsCount),
+                          normalizedValueToBinIndex(rgb[Blue], binsCount),
+                          normalizedValueToBinIndex(luminance, binsCount));
         
-    addToBin(&output[rgblBins[Red] * RGBL_4], &maxBinValue[Red]);
-    addToBin(&output[rgblBins[Green] * RGBL_4 + Green], &maxBinValue[Green]);
-    addToBin(&output[rgblBins[Blue] * RGBL_4 + Blue], &maxBinValue[Blue]);
-    addToBin(&output[rgblBins[Luminance] * RGBL_4 + Luminance], &maxBinValue[Luminance]);
+    addToBin(&output[rgblBin[Red] * RGBL_4], &maxBinValue[Red]);
+    addToBin(&output[rgblBin[Green] * RGBL_4 + Green], &maxBinValue[Green]);
+    addToBin(&output[rgblBin[Blue] * RGBL_4 + Blue], &maxBinValue[Blue]);
+    addToBin(&output[rgblBin[Luminance] * RGBL_4 + Luminance], &maxBinValue[Luminance]);
 }

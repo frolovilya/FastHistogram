@@ -5,20 +5,15 @@ import AppKit
 
 final class FastHistogramTests: XCTestCase {
     
-    static let binsCount: simd_uint1 = 256
+    private static let binsCount: Int = 256
     
     var gpuHandler: GPUHandler!
     var histogramGenerator: HistogramGenerator!
-    var bufferReader: HistogramBufferReader!
     
     override func setUpWithError() throws {
         gpuHandler = try GPUHandler()
         histogramGenerator = try HistogramGenerator(gpuHandler: gpuHandler,
                                                     binsCount: FastHistogramTests.binsCount)
-
-        bufferReader = HistogramBufferReader(histogramBuffer: histogramGenerator.histogramBuffer,
-                                             maxBinValueBuffer: histogramGenerator.maxBinValueBuffer,
-                                             binsCount: FastHistogramTests.binsCount)
     }
     
     private func getImage(name: String) -> CGImage? {
@@ -31,6 +26,25 @@ final class FastHistogramTests: XCTestCase {
         var imageRect = CGRect(x: 0, y: 0, width: image.size.width, height: image.size.height)
         
         return image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
+    }
+
+    private func linearize(_ value: Double) -> Double {
+        pow((value + 0.055) / 1.055, 2.4)
+    }
+    
+    private func binIndex(_ value: Double) -> Int {
+        Int(value * Double(FastHistogramTests.binsCount - 1))
+    }
+    
+    private func checkHistogramBuffer(histogram: HistogramBuffer,
+                                      expectedBins: [Int: RGBLBin]) -> Void {
+        for i in 0..<histogram.binsCount {
+            let expectedBin = expectedBins[i] != nil ? expectedBins[i]! : RGBLBin(0, 0, 0, 0)
+            let actualBin = histogram.getBin(index: i)
+            
+            print(i, expectedBin, actualBin)
+            XCTAssertEqual(actualBin, expectedBin)
+        }
     }
     
     /*
@@ -48,12 +62,11 @@ final class FastHistogramTests: XCTestCase {
         }
         
         histogramGenerator.process(cgImage: image, isLinear: false)
-        bufferReader.printBufferContents()
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
         
-        for index in 0..<(FastHistogramTests.binsCount - 1) {
-            XCTAssertEqual(bufferReader.getBin(index: index), simd_uint4(0, 0, 0, 0))
-        }
-        XCTAssertEqual(bufferReader.getBin(index: FastHistogramTests.binsCount - 1), simd_uint4(4, 4, 4, 4))
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [FastHistogramTests.binsCount - 1: RGBLBin(4, 4, 4, 4)])
     }
     
     /*
@@ -71,17 +84,11 @@ final class FastHistogramTests: XCTestCase {
         }
         
         histogramGenerator.process(cgImage: image, isLinear: false)
-        bufferReader.printBufferContents()
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
         
-        XCTAssertEqual(bufferReader.getBin(index: 0), simd_uint4(4, 4, 4, 4))
-        for index in 1..<FastHistogramTests.binsCount {
-            XCTAssertEqual(bufferReader.getBin(index: index), simd_uint4(0, 0, 0, 0))
-        }
-    }
-    
-    // TODO: move to shared C code
-    private func linearize(_ value: Double) -> Double {
-        pow((value + 0.055) / 1.055, 2.4)
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [0: RGBLBin(4, 4, 4, 4)])
     }
     
     /*
@@ -101,27 +108,63 @@ final class FastHistogramTests: XCTestCase {
         
         // calculate gamma encoded histogram
         histogramGenerator.process(cgImage: image, isLinear: false)
-        bufferReader.printBufferContents()
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
         
-        let gammaEncodedBinIndex: simd_uint1 = 119
-        for index in 0..<FastHistogramTests.binsCount {
-            XCTAssertEqual(bufferReader.getBin(index: index),
-                           index == gammaEncodedBinIndex ? simd_uint4(4, 4, 4, 4) : simd_uint4(0, 0, 0, 0))
-        }
+        let gammaEncodedBinIndex = 119
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [gammaEncodedBinIndex: RGBLBin(4, 4, 4, 4)])
         
         // calculate linearized histogram
         histogramGenerator.process(cgImage: image, isLinear: true)
-        bufferReader.printBufferContents()
-        
-        let linearizedBinIndex: simd_uint1 = simd_uint1(Int(linearize(119.0/255) * Double(FastHistogramTests.binsCount - 1)))
-        for index in 0..<FastHistogramTests.binsCount {
-            XCTAssertEqual(bufferReader.getBin(index: index),
-                           index == linearizedBinIndex ? simd_uint4(4, 4, 4, 4) : simd_uint4(0, 0, 0, 0))
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
+
+        let linearizedBinIndex = binIndex(linearize(119.0/255))
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [linearizedBinIndex: RGBLBin(4, 4, 4, 4)])
+    }
+    
+    /*
+     4 pixels with the following gamma RGB values:
+     0 0 --- 0.0  1.0 0.004  Green
+     0 1 --- 0.0  0.0 0.99   Blue
+     1 0 --- 0.99 0.0 0.0    Red
+     1 1 --- 0.0  1.0 0.0    Green
+     
+     Since these aren't gray colors, using the following perception coefficients to get luminance:
+     (0.2126 * r + 0.7152 * g + 0.0722 * b)
+     */
+    func testRgb() {
+        guard let image = getImage(name: "rggb_2x2")
+        else {
+            XCTFail()
+            return
         }
+        
+        let redBin = binIndex(0.2126)
+        let greenBin = binIndex(0.7152)
+        let blueBin = binIndex(0.0722)
+        
+        // calculate gamma encoded histogram
+        histogramGenerator.process(cgImage: image, isLinear: false)
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
+
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [0: RGBLBin(3, 2, 2, 0),
+                                            1: RGBLBin(0, 0, 1, 0), // blue 0.004
+                                            254: RGBLBin(1, 0, 1, 0), // red, blue ~0.99
+                                            255: RGBLBin(0, 2, 0, 0), // green 1
+                                            redBin: RGBLBin(0, 0, 0, 1),
+                                            greenBin: RGBLBin(0, 0, 0, 2),
+                                            blueBin: RGBLBin(0, 0, 0, 1)])
+        
     }
 
     static var allTests = [
         ("testWhite", testWhite),
         ("testBlack", testBlack),
+        ("test18Gray", test18Gray),
     ]
 }

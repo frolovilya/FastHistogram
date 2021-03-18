@@ -17,7 +17,7 @@ struct RasterizerData {
     float4 color [[ flat ]];
 };
 
-vertex RasterizerData histogram_bar_vertex(uint vertexId [[ vertex_id ]],
+vertex RasterizerData histogramBarVertex(uint vertexId [[ vertex_id ]],
                                            uint instanceId [[ instance_id ]],
                                            constant VertexIn *vertices [[ buffer(HistogramVertexInputIndexVertices) ]],
                                            constant uniform<uint> *histogramBuffer [[ buffer(HistogramVertexInputIndexHistogramBuffer) ]],
@@ -65,6 +65,6 @@ vertex RasterizerData histogram_bar_vertex(uint vertexId [[ vertex_id ]],
     return out;
 }
 
-fragment float4 histogram_bar_fragment(RasterizerData in [[ stage_in ]]) {
+fragment float4 histogramBarFragment(RasterizerData in [[ stage_in ]]) {
     return in.color;
 }

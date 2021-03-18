@@ -10,25 +10,25 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let gpuHandler: GPUHandler
     private let renderPipelineState: MTLRenderPipelineState
     
-    private var histogramBuffer: MTLBuffer!
-    private var maxBinValueBuffer: MTLBuffer!
+    private let histogramBuffer: HistogramBuffer
+    private let maxBinValueBuffer: MaxBinValueBuffer
     
-    private var barVertices: [simd_float2] = [
+    private static var barVertices: [simd_float2] = [
         [0, 0], [0, 1], [1, 1], // left triangle
         [0, 0], [1, 0], [1, 1]  // right triangle
     ]
     
-    private var binsCount: simd_uint1
-    private var layerColors: [simd_float4]
+    private var binsCount: Int
+    private var layerColors: [RGBAColor]
     
     private var updatePublisherCancellable: AnyCancellable?
 
     public init(gpuHandler: GPUHandler,
                 view: MTKView,
-                binsCount: simd_uint1,
-                layerColors: [simd_float4],
-                histogramBuffer: MTLBuffer,
-                maxBinValueBuffer: MTLBuffer) throws {
+                binsCount: Int,
+                layerColors: [RGBAColor],
+                histogramBuffer: HistogramBuffer,
+                maxBinValueBuffer: MaxBinValueBuffer) throws {
         self.gpuHandler = gpuHandler
         self.view = view
         self.binsCount = binsCount
@@ -48,8 +48,8 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     }
     
     private static func initRenderPipelineState(device: MTLDevice, library: MTLLibrary?) throws -> MTLRenderPipelineState {
-        let vertexFunction = library?.makeFunction(name: "histogram_bar_vertex")
-        let fragmentFunction = library?.makeFunction(name: "histogram_bar_fragment")
+        let vertexFunction = library?.makeFunction(name: "histogramBarVertex")
+        let fragmentFunction = library?.makeFunction(name: "histogramBarFragment")
         
         let renderPipelineDescriptor = MTLRenderPipelineDescriptor()
         renderPipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
@@ -76,11 +76,11 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         commandEncoder.setRenderPipelineState(renderPipelineState)
         
         // render bar
-        commandEncoder.setVertexBytes(&barVertices,
-                                      length: MemoryLayout<simd_float2>.stride * barVertices.count,
+        commandEncoder.setVertexBytes(&HistogramRenderer.barVertices,
+                                      length: MemoryLayout<simd_float2>.stride * HistogramRenderer.barVertices.count,
                                       index: Int(HistogramVertexInputIndexVertices.rawValue))
         
-        commandEncoder.setVertexBuffer(histogramBuffer,
+        commandEncoder.setVertexBuffer(histogramBuffer.metalBuffer,
                                        offset: 0,
                                        index: Int(HistogramVertexInputIndexHistogramBuffer.rawValue))
         
@@ -88,20 +88,20 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
                                       length: MemoryLayout<simd_uint1>.stride,
                                       index: Int(HistogramVertexInputIndexBinsCount.rawValue))
         
-        commandEncoder.setVertexBuffer(maxBinValueBuffer,
+        commandEncoder.setVertexBuffer(maxBinValueBuffer.metalBuffer,
                                        offset: 0,
                                        index: Int(HistogramVertexInputIndexMaxBinValue.rawValue))
 
         commandEncoder.setVertexBytes(&layerColors,
-                                      length: MemoryLayout<simd_float4>.stride * layerColors.count,
+                                      length: MemoryLayout<RGBAColor>.stride * layerColors.count,
                                       index: Int(HistogramVertexInputIndexColors.rawValue))
 
         // commandEncoder.setTriangleFillMode(.lines)
         
         commandEncoder.drawPrimitives(type: .triangle,
                                       vertexStart: 0,
-                                      vertexCount: barVertices.count,
-                                      instanceCount: Int(binsCount) * RGBL_4)
+                                      vertexCount: HistogramRenderer.barVertices.count,
+                                      instanceCount: binsCount * RGBL_4)
                         
         // finish commands encoding
         commandEncoder.endEncoding()

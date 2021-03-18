@@ -27,6 +27,7 @@ public class GPUHandler {
         self.library = library
     }
     
+    /// The capture manager captures commands only within MTLCommandBuffer objects that are created after the capture starts and are committed before the capture stops.
     func startProgrammaticCapture() {
         let captureManager = MTLCaptureManager.shared()
         let captureDescriptor = MTLCaptureDescriptor()
