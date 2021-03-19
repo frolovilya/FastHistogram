@@ -9,23 +9,14 @@ final class FastHistogramTests: XCTestCase {
     
     var gpuHandler: GPUHandler!
     var histogramGenerator: HistogramGenerator!
+    var texture: MTLTexture!
     
     override func setUpWithError() throws {
         gpuHandler = try GPUHandler()
         histogramGenerator = try HistogramGenerator(gpuHandler: gpuHandler,
                                                     binsCount: FastHistogramTests.binsCount)
-    }
-    
-    private func getImage(name: String) -> CGImage? {
-        guard let imageURL = Bundle.module.url(forResource: name, withExtension: "jpg")
-        else { return nil }
-        
-        guard let image = NSImage(contentsOf: imageURL)
-        else { return nil }
-        
-        var imageRect = CGRect(x: 0, y: 0, width: image.size.width, height: image.size.height)
-        
-        return image.cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
+        texture = TextureFactory.createTexture(device: gpuHandler.device,
+                                               size: MTLSizeMake(2, 2, 1))
     }
 
     private func linearize(_ value: Double) -> Double {
@@ -33,7 +24,7 @@ final class FastHistogramTests: XCTestCase {
     }
     
     private func binIndex(_ value: Double) -> Int {
-        Int(value * Double(FastHistogramTests.binsCount - 1))
+        Int(round(value * Double(FastHistogramTests.binsCount - 1)))
     }
     
     private func checkHistogramBuffer(histogram: HistogramBuffer,
@@ -48,20 +39,18 @@ final class FastHistogramTests: XCTestCase {
     }
     
     /*
-     All 4 pixels of white RGB(255, 255, 255) color.
-     R: 255 - 1
-     G: 255 - 1
-     B: 255 - 1
-     L: 255 - 1
+     All 4 pixels of white RGB(255, 255, 255) color
      */
     func testWhite() {
-        guard let image = getImage(name: "white_2x2")
-        else {
-            XCTFail()
-            return
-        }
+        let pixelData: [UInt8] = [
+            255, 255, 255, 255,
+            255, 255, 255, 255,
+            255, 255, 255, 255,
+            255, 255, 255, 255
+        ]
+        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
         
-        histogramGenerator.process(cgImage: image, isLinear: false)
+        histogramGenerator.process(texture: texture, isLinear: false)
         histogramGenerator.histogramBuffer.dumpBufferContents()
         histogramGenerator.maxBinValueBuffer.dumpBufferContents()
         
@@ -70,20 +59,18 @@ final class FastHistogramTests: XCTestCase {
     }
     
     /*
-     All 4 pixels of black RGB(0, 0, 0) color.
-     R: 0 - 4
-     G: 0 - 4
-     B: 0 - 4
-     L: 0 - 4
+     All 4 pixels of black RGB(0, 0, 0) color
      */
     func testBlack() {
-        guard let image = getImage(name: "black_2x2")
-        else {
-            XCTFail()
-            return
-        }
+        let pixelData: [UInt8] = [
+            0, 0, 0, 255,
+            0, 0, 0, 255,
+            0, 0, 0, 255,
+            0, 0, 0, 255
+        ]
+        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
         
-        histogramGenerator.process(cgImage: image, isLinear: false)
+        histogramGenerator.process(texture: texture, isLinear: false)
         histogramGenerator.histogramBuffer.dumpBufferContents()
         histogramGenerator.maxBinValueBuffer.dumpBufferContents()
         
@@ -97,17 +84,18 @@ final class FastHistogramTests: XCTestCase {
      Assuming 119 is gamma encoded (with gamma=2.4), it's gamma luminance is ~47%.
      Linearized luminance is:
      (119/255)^2.4 = ~16%
-     
      */
     func test18Gray() {
-        guard let image = getImage(name: "18_gray_2x2")
-        else {
-            XCTFail()
-            return
-        }
+        let pixelData: [UInt8] = [
+            119, 119, 119, 255,
+            119, 119, 119, 255,
+            119, 119, 119, 255,
+            119, 119, 119, 255
+        ]
+        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
         
         // calculate gamma encoded histogram
-        histogramGenerator.process(cgImage: image, isLinear: false)
+        histogramGenerator.process(texture: texture, isLinear: false)
         histogramGenerator.histogramBuffer.dumpBufferContents()
         histogramGenerator.maxBinValueBuffer.dumpBufferContents()
         
@@ -116,7 +104,7 @@ final class FastHistogramTests: XCTestCase {
                              expectedBins: [gammaEncodedBinIndex: RGBLBin(4, 4, 4, 4)])
         
         // calculate linearized histogram
-        histogramGenerator.process(cgImage: image, isLinear: true)
+        histogramGenerator.process(texture: texture, isLinear: true)
         histogramGenerator.histogramBuffer.dumpBufferContents()
         histogramGenerator.maxBinValueBuffer.dumpBufferContents()
 
@@ -126,45 +114,109 @@ final class FastHistogramTests: XCTestCase {
     }
     
     /*
-     4 pixels with the following gamma RGB values:
-     0 0 --- 0.0  1.0 0.004  Green
-     0 1 --- 0.0  0.0 0.99   Blue
-     1 0 --- 0.99 0.0 0.0    Red
-     1 1 --- 0.0  1.0 0.0    Green
+     4 pixels with pure RGB colors.
      
      Since these aren't gray colors, using the following perception coefficients to get luminance:
      (0.2126 * r + 0.7152 * g + 0.0722 * b)
      */
-    func testRgb() {
-        guard let image = getImage(name: "rggb_2x2")
-        else {
-            XCTFail()
-            return
-        }
+    func testPureRgb() {
+        // BGRA
+        let pixelData: [UInt8] = [
+            0,   255, 0,   255, // green
+            255, 0,   0,   255, // blue
+            0,   0,   255, 255, // red
+            0,   255, 0,   255  // green
+        ]
+        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
         
         let redBin = binIndex(0.2126)
         let greenBin = binIndex(0.7152)
         let blueBin = binIndex(0.0722)
         
         // calculate gamma encoded histogram
-        histogramGenerator.process(cgImage: image, isLinear: false)
+        histogramGenerator.process(texture: texture, isLinear: false)
         histogramGenerator.histogramBuffer.dumpBufferContents()
         histogramGenerator.maxBinValueBuffer.dumpBufferContents()
 
         checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
-                             expectedBins: [0: RGBLBin(3, 2, 2, 0),
-                                            1: RGBLBin(0, 0, 1, 0), // blue 0.004
-                                            254: RGBLBin(1, 0, 1, 0), // red, blue ~0.99
-                                            255: RGBLBin(0, 2, 0, 0), // green 1
+                             expectedBins: [0: RGBLBin(3, 2, 3, 0),
+                                            255: RGBLBin(1, 2, 1, 0),
                                             redBin: RGBLBin(0, 0, 0, 1),
                                             greenBin: RGBLBin(0, 0, 0, 2),
                                             blueBin: RGBLBin(0, 0, 0, 1)])
-        
     }
+    
+    /*
+     All 4 pixels of a mixed RGB color (60, 150, 157), gamma histogram
+     */
+    func testMixedRgbGamma() {
+        // BGRA
+        let pixelData: [UInt8] = [
+            157, 150, 60, 255,
+            157, 150, 60, 255,
+            157, 150, 60, 255,
+            157, 150, 60, 255
+        ]
+        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+
+        let luminance = (0.2126 * 60/255.0
+                            + 0.7152 * 150/255.0
+                            + 0.0722 * 157/255.0)
+        let luminanceBin = binIndex(luminance)
+        
+        // calculate gamma encoded histogram
+        histogramGenerator.process(texture: texture, isLinear: false)
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
+
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [60: RGBLBin(4, 0, 0, 0),
+                                            150: RGBLBin(0, 4, 0, 0),
+                                            157: RGBLBin(0, 0, 4, 0),
+                                            luminanceBin: RGBLBin(0, 0, 0, 4)])
+    }
+    
+    /*
+     All 4 pixels of a mixed RGB color (60, 150, 157), linear histogram
+     */
+    func testMixedRgbLinear() {
+        // BGRA
+        let pixelData: [UInt8] = [
+            157, 150, 60, 255,
+            157, 150, 60, 255,
+            157, 150, 60, 255,
+            157, 150, 60, 255
+        ]
+        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+
+        let redBin = binIndex(linearize(60/255.0))
+        let greenBin = binIndex(linearize(150/255.0))
+        let blueBin = binIndex(linearize(157/255.0))
+        
+        let luminance = (0.2126 * linearize(60/255.0)
+                            + 0.7152 * linearize(150/255.0)
+                            + 0.0722 * linearize(157/255.0))
+        let luminanceBin = binIndex(luminance)
+        
+        // calculate gamma encoded histogram
+        histogramGenerator.process(texture: texture, isLinear: true)
+        histogramGenerator.histogramBuffer.dumpBufferContents()
+        histogramGenerator.maxBinValueBuffer.dumpBufferContents()
+
+        checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
+                             expectedBins: [redBin: RGBLBin(4, 0, 0, 0),
+                                            greenBin: RGBLBin(0, 4, 0, 0),
+                                            blueBin: RGBLBin(0, 0, 4, 0),
+                                            luminanceBin: RGBLBin(0, 0, 0, 4)])
+    }
+
 
     static var allTests = [
         ("testWhite", testWhite),
         ("testBlack", testBlack),
         ("test18Gray", test18Gray),
+        ("testPureRgb", testPureRgb),
+        ("testMixedRgbGamma", testMixedRgbGamma),
+        ("testMixedRgbLinear", testMixedRgbLinear),
     ]
 }

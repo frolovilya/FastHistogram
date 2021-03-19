@@ -39,15 +39,11 @@ public class HistogramGenerator {
         }
     }
     
-    public func process(cgImage: CGImage,
+    public func process(texture: MTLTexture,
                         isLinear: Bool) -> Void {
-        if let texture = try? MTKTextureLoader(device: gpuHandler.device).newTexture(cgImage: cgImage, options: nil) {
-            histogramGenerationPass(texture: texture,
-                                    size: MTLSizeMake(cgImage.width, cgImage.height, 1),
-                                    isLinear: isLinear)
-        } else {
-            print("Unable to generate texture from input image")
-        }
+        histogramGenerationPass(texture: texture,
+                                size: MTLSizeMake(texture.width, texture.height, texture.depth),
+                                isLinear: isLinear)
     }
     
     private func histogramGenerationPass(texture: MTLTexture,
@@ -134,10 +130,9 @@ public class HistogramGenerator {
                                  index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
 
         // init grid size
-//        let w = generateHistogramComputePipelineState.threadExecutionWidth
-//        let h = generateHistogramComputePipelineState.maxTotalThreadsPerThreadgroup / w
-//        let threadsPerGroup = MTLSizeMake(w, h, 1)
-        let threadsPerGroup = MTLSizeMake(2, 2, 1)
+        let w = min(size.width, generateHistogramComputePipelineState.threadExecutionWidth)
+        let h = min(size.height, generateHistogramComputePipelineState.maxTotalThreadsPerThreadgroup / w)
+        let threadsPerGroup = MTLSizeMake(w, h, 1)
 
         commandEncoder.dispatchThreads(size,
                                        threadsPerThreadgroup: threadsPerGroup)
