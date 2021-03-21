@@ -7,8 +7,8 @@ public enum GPUOperationError: Error {
 public class GPUHandler {
     
     public let device: MTLDevice
-    public let commandQueue: MTLCommandQueue
-    public let library: MTLLibrary
+    let commandQueue: MTLCommandQueue
+    let library: MTLLibrary
     
     public init() throws {
         // init GPU device

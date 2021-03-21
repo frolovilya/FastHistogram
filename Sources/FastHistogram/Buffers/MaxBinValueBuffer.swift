@@ -34,4 +34,13 @@ public class MaxBinValueBuffer {
                 + "\(pointer.advanced(by: 3).pointee))")
     }
     
+    public var maxBinValues: RGBLBin {
+        let pointer = newPointer()
+        
+        return RGBLBin(pointer.pointee,
+                       pointer.advanced(by: 1).pointee,
+                       pointer.advanced(by: 2).pointee,
+                       pointer.advanced(by: 3).pointee)
+    }
+    
 }

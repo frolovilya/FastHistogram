@@ -45,16 +45,16 @@ void addToBin(volatile device atomic_uint *bin,
 }
 
 kernel void zeroHistogramBuffer(uint index [[ thread_position_in_grid ]],
-                                 volatile device uint *histogram [[ buffer(HistogramGeneratorInputIndexHistogramBuffer) ]]) {
+                                volatile device uint *histogram [[ buffer(HistogramGeneratorInputIndexHistogramBuffer) ]]) {
     histogram[index] = 0;
 }
 
 kernel void zeroMaxBinValueBuffer(uint index [[ thread_position_in_grid ]],
-                            volatile device uint *maxBinValue [[ buffer(HistogramGeneratorInputIndexMaxBinValueBuffer) ]]) {
+                                  volatile device uint *maxBinValue [[ buffer(HistogramGeneratorInputIndexMaxBinValueBuffer) ]]) {
     maxBinValue[index] = 0;
 }
 
-kernel void generateHistogram(texture2d<float, access::read> frame [[ texture(HistogramGeneratorInputIndexTexture) ]],
+kernel void generateHistogram(texture2d<float, access::sample> frame [[ texture(HistogramGeneratorInputIndexTexture) ]],
                               constant uniform<uint> &binsCount [[ buffer(HistogramGeneratorInputIndexBinsCount) ]],
                               constant uniform<bool> &isLinear [[ buffer(HistogramGeneratorInputIndexIsLinear) ]],
                               uint2 index [[ thread_position_in_grid ]],

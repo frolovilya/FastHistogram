@@ -121,13 +121,15 @@ public class HistogramGenerator {
                                 length: MemoryLayout<simd_bool>.stride,
                                 index: Int(HistogramGeneratorInputIndexIsLinear.rawValue))
         
-        commandEncoder.setBuffer(histogramBuffer.metalBuffer,
-                                 offset: 0,
-                                 index: Int(HistogramGeneratorInputIndexHistogramBuffer.rawValue))
+        // Histogram and MaxBinValue buffers must be already set by other methods using this command encoder
         
-        commandEncoder.setBuffer(maxBinValueBuffer.metalBuffer,
-                                 offset: 0,
-                                 index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
+        //        commandEncoder.setBuffer(histogramBuffer.metalBuffer,
+        //                                 offset: 0,
+        //                                 index: Int(HistogramGeneratorInputIndexHistogramBuffer.rawValue))
+        //        
+        //        commandEncoder.setBuffer(maxBinValueBuffer.metalBuffer,
+        //                                 offset: 0,
+        //                                 index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
 
         // init grid size
         let w = min(size.width, generateHistogramComputePipelineState.threadExecutionWidth)

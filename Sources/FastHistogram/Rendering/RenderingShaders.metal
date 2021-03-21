@@ -18,14 +18,14 @@ struct RasterizerData {
 };
 
 vertex RasterizerData histogramBarVertex(uint vertexId [[ vertex_id ]],
-                                           uint instanceId [[ instance_id ]],
-                                           constant VertexIn *vertices [[ buffer(HistogramVertexInputIndexVertices) ]],
-                                           constant uniform<uint> *histogramBuffer [[ buffer(HistogramVertexInputIndexHistogramBuffer) ]],
-                                           constant uniform<uint> &binsCount [[ buffer(HistogramVertexInputIndexBinsCount) ]],
-                                           constant uniform<uint> *maxBinValue [[ buffer(HistogramVertexInputIndexMaxBinValue) ]],
-                                           constant uniform<float4> *layerColors [[ buffer(HistogramVertexInputIndexColors) ]]) {
+                                         uint instanceId [[ instance_id ]],
+                                         constant VertexIn *vertices [[ buffer(HistogramVertexInputIndexVertices) ]],
+                                         constant uniform<uint> *histogramBuffer [[ buffer(HistogramVertexInputIndexHistogramBuffer) ]],
+                                         constant uniform<uint> &binsCount [[ buffer(HistogramVertexInputIndexBinsCount) ]],
+                                         constant uniform<uint> *maxBinValue [[ buffer(HistogramVertexInputIndexMaxBinValue) ]],
+                                         constant uniform<float4> *layerColors [[ buffer(HistogramVertexInputIndexColors) ]]) {
     RasterizerData out;
-            
+    
     // red - 0
     // green - 1
     // blue - 2

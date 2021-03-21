@@ -1,6 +1,5 @@
 import XCTest
 import simd
-import AppKit
 @testable import FastHistogram
 
 final class FastHistogramTests: XCTestCase {
@@ -9,14 +8,15 @@ final class FastHistogramTests: XCTestCase {
     
     var gpuHandler: GPUHandler!
     var histogramGenerator: HistogramGenerator!
+    var textureFactory: TextureFactory!
     var texture: MTLTexture!
     
     override func setUpWithError() throws {
         gpuHandler = try GPUHandler()
         histogramGenerator = try HistogramGenerator(gpuHandler: gpuHandler,
                                                     binsCount: FastHistogramTests.binsCount)
-        texture = TextureFactory.createTexture(device: gpuHandler.device,
-                                               size: MTLSizeMake(2, 2, 1))
+        textureFactory = TextureFactory(device: gpuHandler.device)
+        texture = textureFactory.createTexture(size: MTLSizeMake(2, 2, 1))
     }
 
     private func linearize(_ value: Double) -> Double {
@@ -48,7 +48,7 @@ final class FastHistogramTests: XCTestCase {
             255, 255, 255, 255,
             255, 255, 255, 255
         ]
-        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+        textureFactory.fillTextureWithBGRAPixelData(texture: texture, pixelData: pixelData)
         
         histogramGenerator.process(texture: texture, isLinear: false)
         histogramGenerator.histogramBuffer.dumpBufferContents()
@@ -56,6 +56,8 @@ final class FastHistogramTests: XCTestCase {
         
         checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
                              expectedBins: [FastHistogramTests.binsCount - 1: RGBLBin(4, 4, 4, 4)])
+        
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
     }
     
     /*
@@ -68,7 +70,7 @@ final class FastHistogramTests: XCTestCase {
             0, 0, 0, 255,
             0, 0, 0, 255
         ]
-        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+        textureFactory.fillTextureWithBGRAPixelData(texture: texture, pixelData: pixelData)
         
         histogramGenerator.process(texture: texture, isLinear: false)
         histogramGenerator.histogramBuffer.dumpBufferContents()
@@ -76,6 +78,8 @@ final class FastHistogramTests: XCTestCase {
         
         checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
                              expectedBins: [0: RGBLBin(4, 4, 4, 4)])
+        
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
     }
     
     /*
@@ -92,7 +96,7 @@ final class FastHistogramTests: XCTestCase {
             119, 119, 119, 255,
             119, 119, 119, 255
         ]
-        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+        textureFactory.fillTextureWithBGRAPixelData(texture: texture, pixelData: pixelData)
         
         // calculate gamma encoded histogram
         histogramGenerator.process(texture: texture, isLinear: false)
@@ -103,6 +107,8 @@ final class FastHistogramTests: XCTestCase {
         checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
                              expectedBins: [gammaEncodedBinIndex: RGBLBin(4, 4, 4, 4)])
         
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
+        
         // calculate linearized histogram
         histogramGenerator.process(texture: texture, isLinear: true)
         histogramGenerator.histogramBuffer.dumpBufferContents()
@@ -111,6 +117,8 @@ final class FastHistogramTests: XCTestCase {
         let linearizedBinIndex = binIndex(linearize(119.0/255))
         checkHistogramBuffer(histogram: histogramGenerator.histogramBuffer,
                              expectedBins: [linearizedBinIndex: RGBLBin(4, 4, 4, 4)])
+        
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
     }
     
     /*
@@ -127,7 +135,7 @@ final class FastHistogramTests: XCTestCase {
             0,   0,   255, 255, // red
             0,   255, 0,   255  // green
         ]
-        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+        textureFactory.fillTextureWithBGRAPixelData(texture: texture, pixelData: pixelData)
         
         let redBin = binIndex(0.2126)
         let greenBin = binIndex(0.7152)
@@ -144,6 +152,8 @@ final class FastHistogramTests: XCTestCase {
                                             redBin: RGBLBin(0, 0, 0, 1),
                                             greenBin: RGBLBin(0, 0, 0, 2),
                                             blueBin: RGBLBin(0, 0, 0, 1)])
+        
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(3, 2, 3, 2))
     }
     
     /*
@@ -157,7 +167,7 @@ final class FastHistogramTests: XCTestCase {
             157, 150, 60, 255,
             157, 150, 60, 255
         ]
-        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+        textureFactory.fillTextureWithBGRAPixelData(texture: texture, pixelData: pixelData)
 
         let luminance = (0.2126 * 60/255.0
                             + 0.7152 * 150/255.0
@@ -174,6 +184,8 @@ final class FastHistogramTests: XCTestCase {
                                             150: RGBLBin(0, 4, 0, 0),
                                             157: RGBLBin(0, 0, 4, 0),
                                             luminanceBin: RGBLBin(0, 0, 0, 4)])
+        
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
     }
     
     /*
@@ -187,7 +199,7 @@ final class FastHistogramTests: XCTestCase {
             157, 150, 60, 255,
             157, 150, 60, 255
         ]
-        TextureFactory.fillTextureWithPixelData(texture: texture, pixelData: pixelData)
+        textureFactory.fillTextureWithBGRAPixelData(texture: texture, pixelData: pixelData)
 
         let redBin = binIndex(linearize(60/255.0))
         let greenBin = binIndex(linearize(150/255.0))
@@ -208,6 +220,8 @@ final class FastHistogramTests: XCTestCase {
                                             greenBin: RGBLBin(0, 4, 0, 0),
                                             blueBin: RGBLBin(0, 0, 4, 0),
                                             luminanceBin: RGBLBin(0, 0, 0, 4)])
+        
+        XCTAssertEqual(histogramGenerator.maxBinValueBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
     }
 
 
