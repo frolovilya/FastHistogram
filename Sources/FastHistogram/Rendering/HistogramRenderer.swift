@@ -11,7 +11,6 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let renderPipelineState: MTLRenderPipelineState
     
     private let histogramBuffer: HistogramBuffer
-    private let maxBinValueBuffer: MaxBinValueBuffer
     
     private static var barVertices: [simd_float2] = [
         [0, 0], [0, 1], [1, 1], // left triangle
@@ -27,15 +26,13 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
                 view: MTKView,
                 binsCount: Int,
                 layerColors: [RGBAColor],
-                histogramBuffer: HistogramBuffer,
-                maxBinValueBuffer: MaxBinValueBuffer) throws {
+                histogramBuffer: HistogramBuffer) throws {
         self.gpuHandler = gpuHandler
         self.view = view
         self.binsCount = binsCount
         self.layerColors = layerColors
         
         self.histogramBuffer = histogramBuffer
-        self.maxBinValueBuffer = maxBinValueBuffer
         
         // init render pipeline states
         renderPipelineState = try HistogramRenderer.initRenderPipelineState(device: gpuHandler.device,
@@ -88,10 +85,6 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
                                       length: MemoryLayout<simd_uint1>.stride,
                                       index: Int(HistogramVertexInputIndexBinsCount.rawValue))
         
-        commandEncoder.setVertexBuffer(maxBinValueBuffer.metalBuffer,
-                                       offset: 0,
-                                       index: Int(HistogramVertexInputIndexMaxBinValue.rawValue))
-
         commandEncoder.setVertexBytes(&layerColors,
                                       length: MemoryLayout<RGBAColor>.stride * layerColors.count,
                                       index: Int(HistogramVertexInputIndexColors.rawValue))

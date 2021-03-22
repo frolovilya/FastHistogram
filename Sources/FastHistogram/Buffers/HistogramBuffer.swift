@@ -3,6 +3,7 @@ import CShaderHeader
 
 public class HistogramBuffer {
     
+    // [4 max bin values][histogram bins]
     public let metalBuffer: MTLBuffer
     public let binsCount: Int
     
@@ -16,11 +17,11 @@ public class HistogramBuffer {
     }
     
     static func sizeBytes(binsCount: Int) -> Int {
-        return MemoryLayout<RGBLBinCell>.stride * RGBL_4 * binsCount
+        return MemoryLayout<RGBLBinCell>.stride * RGBL_4 * (binsCount + 1)
     }
     
     var capacity: Int {
-        return binsCount * RGBL_4
+        return (binsCount + 1) * RGBL_4
     }
     
     private func newPointer() -> UnsafeMutablePointer<RGBLBinCell> {
@@ -31,12 +32,21 @@ public class HistogramBuffer {
     public func getBin(index: Int) -> RGBLBin {
         let pointer = newPointer()
         
-        let red = pointer.advanced(by: index * RGBL_4 + Int(Red.rawValue)).pointee
-        let green = pointer.advanced(by: index * RGBL_4 + Int(Green.rawValue)).pointee
-        let blue = pointer.advanced(by: index * RGBL_4 + Int(Blue.rawValue)).pointee
-        let luminance = pointer.advanced(by: index * RGBL_4 + Int(Luminance.rawValue)).pointee
+        let red = pointer.advanced(by: (index + 1) * RGBL_4 + Int(Red.rawValue)).pointee
+        let green = pointer.advanced(by: (index + 1) * RGBL_4 + Int(Green.rawValue)).pointee
+        let blue = pointer.advanced(by: (index + 1) * RGBL_4 + Int(Blue.rawValue)).pointee
+        let luminance = pointer.advanced(by: (index + 1) * RGBL_4 + Int(Luminance.rawValue)).pointee
         
         return RGBLBin(red, green, blue, luminance)
+    }
+    
+    public var maxBinValues: RGBLBin {
+        let pointer = newPointer()
+        
+        return RGBLBin(pointer.pointee,
+                       pointer.advanced(by: 1).pointee,
+                       pointer.advanced(by: 2).pointee,
+                       pointer.advanced(by: 3).pointee)
     }
     
     func dumpBufferContents() -> Void {
@@ -45,6 +55,8 @@ public class HistogramBuffer {
             let rgbl = getBin(index: i)
             print("\(i): (\(rgbl[0]), \(rgbl[1]), \(rgbl[2]), \(rgbl[3]))")
         }
+        
+        print("maxBinValues = \(maxBinValues)")
     }
     
 }

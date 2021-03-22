@@ -22,7 +22,6 @@ vertex RasterizerData histogramBarVertex(uint vertexId [[ vertex_id ]],
                                          constant VertexIn *vertices [[ buffer(HistogramVertexInputIndexVertices) ]],
                                          constant uniform<uint> *histogramBuffer [[ buffer(HistogramVertexInputIndexHistogramBuffer) ]],
                                          constant uniform<uint> &binsCount [[ buffer(HistogramVertexInputIndexBinsCount) ]],
-                                         constant uniform<uint> *maxBinValue [[ buffer(HistogramVertexInputIndexMaxBinValue) ]],
                                          constant uniform<float4> *layerColors [[ buffer(HistogramVertexInputIndexColors) ]]) {
     RasterizerData out;
     
@@ -36,7 +35,8 @@ vertex RasterizerData histogramBarVertex(uint vertexId [[ vertex_id ]],
     uint binIndex = instanceId / RGBL_4;
     
     // normalized bar height value
-    float height = histogramBuffer[instanceId] / float(maxBinValue[layerIndex]);
+    // first 4 bins contains max bin values
+    float height = histogramBuffer[instanceId + RGBL_4] / float(histogramBuffer[layerIndex]);
 
     // normalized coordinates where [-1, -1] is the bottom left corner
     out.position = float4(0, 0, 0, 1);

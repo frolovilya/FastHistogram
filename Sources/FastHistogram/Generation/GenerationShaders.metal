@@ -49,17 +49,11 @@ kernel void zeroHistogramBuffer(uint index [[ thread_position_in_grid ]],
     histogram[index] = 0;
 }
 
-kernel void zeroMaxBinValueBuffer(uint index [[ thread_position_in_grid ]],
-                                  volatile device uint *maxBinValue [[ buffer(HistogramGeneratorInputIndexMaxBinValueBuffer) ]]) {
-    maxBinValue[index] = 0;
-}
-
 kernel void generateHistogram(texture2d<float, access::sample> frame [[ texture(HistogramGeneratorInputIndexTexture) ]],
                               constant uniform<uint> &binsCount [[ buffer(HistogramGeneratorInputIndexBinsCount) ]],
                               constant uniform<bool> &isLinear [[ buffer(HistogramGeneratorInputIndexIsLinear) ]],
                               uint2 index [[ thread_position_in_grid ]],
-                              volatile device atomic_uint *output [[ buffer(HistogramGeneratorInputIndexHistogramBuffer) ]],
-                              volatile device atomic_uint *maxBinValue [[ buffer(HistogramGeneratorInputIndexMaxBinValueBuffer) ]]) {
+                              volatile device atomic_uint *output [[ buffer(HistogramGeneratorInputIndexHistogramBuffer) ]]) {
     
     // read gamma encoded normalized color RGBA values
     float4 rgba = frame.read(index);
@@ -80,9 +74,11 @@ kernel void generateHistogram(texture2d<float, access::sample> frame [[ texture(
                           normalizedValueToBinIndex(rgb[Green], binsCount),
                           normalizedValueToBinIndex(rgb[Blue], binsCount),
                           normalizedValueToBinIndex(luminance, binsCount));
-        
-    addToBin(&output[rgblBin[Red] * RGBL_4], &maxBinValue[Red]);
-    addToBin(&output[rgblBin[Green] * RGBL_4 + Green], &maxBinValue[Green]);
-    addToBin(&output[rgblBin[Blue] * RGBL_4 + Blue], &maxBinValue[Blue]);
-    addToBin(&output[rgblBin[Luminance] * RGBL_4 + Luminance], &maxBinValue[Luminance]);
+    
+    // first 4 bins are for max bin values
+    addToBin(&output[rgblBin[Red] * RGBL_4 + RGBL_4], &output[Red]);
+    addToBin(&output[rgblBin[Green] * RGBL_4 + Green + RGBL_4], &output[Green]);
+    addToBin(&output[rgblBin[Blue] * RGBL_4 + Blue + RGBL_4], &output[Blue]);
+    addToBin(&output[rgblBin[Luminance] * RGBL_4 + Luminance + RGBL_4], &output[Luminance]);
+
 }

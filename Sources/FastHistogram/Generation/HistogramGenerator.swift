@@ -8,13 +8,11 @@ public class HistogramGenerator {
     private let gpuHandler: GPUHandler
     
     private let zeroHistogramBufferComputePipelineState: MTLComputePipelineState
-    private let zeroMaxBinValueBufferComputePipelineState: MTLComputePipelineState
     private let generateHistogramComputePipelineState: MTLComputePipelineState
     
     private var binsCount: Int
 
     public let histogramBuffer: HistogramBuffer
-    public let maxBinValueBuffer: MaxBinValueBuffer
     
     public init(gpuHandler: GPUHandler,
                 binsCount: Int) throws {
@@ -24,11 +22,9 @@ public class HistogramGenerator {
         // init compute pipeline states
         self.generateHistogramComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "generateHistogram")
         self.zeroHistogramBufferComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "zeroHistogramBuffer")
-        self.zeroMaxBinValueBufferComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "zeroMaxBinValueBuffer")
                 
-        // init result buffers
+        // init result buffer
         self.histogramBuffer = try HistogramBuffer(device: gpuHandler.device, binsCount: binsCount)
-        self.maxBinValueBuffer = try MaxBinValueBuffer(device: gpuHandler.device)
     }
     
     private static func initComputePipelineState(gpuHandler: GPUHandler, functionName: String) throws -> MTLComputePipelineState {
@@ -61,7 +57,6 @@ public class HistogramGenerator {
         }
         
         encodeZeroHistogramBuffer(commandEncoder: commandEncoder)
-        encodeZeroMaxBinValueBuffer(commandEncoder: commandEncoder)
         encodeGenerateHistogram(commandEncoder: commandEncoder, texture: texture, size: size, isLinear: isLinear)
         
         commandEncoder.endEncoding()
@@ -86,22 +81,7 @@ public class HistogramGenerator {
         commandEncoder.dispatchThreads(gridSize,
                                        threadsPerThreadgroup: threadsPerGroup)
     }
-    
-    private func encodeZeroMaxBinValueBuffer(commandEncoder: MTLComputeCommandEncoder) {
-        commandEncoder.setComputePipelineState(zeroMaxBinValueBufferComputePipelineState)
 
-        commandEncoder.setBuffer(maxBinValueBuffer.metalBuffer,
-                                 offset: 0,
-                                 index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
-
-        let gridSize = MTLSizeMake(maxBinValueBuffer.capacity, 1, 1)
-        let threadsPerGroup = MTLSizeMake(min(zeroMaxBinValueBufferComputePipelineState.maxTotalThreadsPerThreadgroup,
-                                              maxBinValueBuffer.capacity), 1, 1)
-        
-        commandEncoder.dispatchThreads(gridSize,
-                                       threadsPerThreadgroup: threadsPerGroup)
-    }
-    
     private func encodeGenerateHistogram(commandEncoder: MTLComputeCommandEncoder,
                                          texture: MTLTexture,
                                          size: MTLSize,
@@ -121,15 +101,7 @@ public class HistogramGenerator {
                                 length: MemoryLayout<simd_bool>.stride,
                                 index: Int(HistogramGeneratorInputIndexIsLinear.rawValue))
         
-        // Histogram and MaxBinValue buffers must be already set by other methods using this command encoder
-        
-        //        commandEncoder.setBuffer(histogramBuffer.metalBuffer,
-        //                                 offset: 0,
-        //                                 index: Int(HistogramGeneratorInputIndexHistogramBuffer.rawValue))
-        //        
-        //        commandEncoder.setBuffer(maxBinValueBuffer.metalBuffer,
-        //                                 offset: 0,
-        //                                 index: Int(HistogramGeneratorInputIndexMaxBinValueBuffer.rawValue))
+        // Histogram buffer must be already set by other methods using this command encoder
 
         // init grid size
         let w = min(size.width, generateHistogramComputePipelineState.threadExecutionWidth)

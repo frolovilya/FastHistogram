@@ -12,15 +12,13 @@ enum HistogramGeneratorInputIndex {
     HistogramGeneratorInputIndexTexture,
     HistogramGeneratorInputIndexBinsCount,
     HistogramGeneratorInputIndexIsLinear,
-    HistogramGeneratorInputIndexHistogramBuffer,
-    HistogramGeneratorInputIndexMaxBinValueBuffer
+    HistogramGeneratorInputIndexHistogramBuffer
 };
 
 enum HistogramVertexInputIndex {
     HistogramVertexInputIndexVertices,
     HistogramVertexInputIndexHistogramBuffer,
     HistogramVertexInputIndexBinsCount,
-    HistogramVertexInputIndexMaxBinValue,
     HistogramVertexInputIndexColors
 };
 
