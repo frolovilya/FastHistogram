@@ -37,7 +37,7 @@ public class HistogramGenerator {
 
     public func process(texture: HistogramTexture,
                         isLinear: Bool,
-                        onCompleted: ((HistogramBuffer) -> Void)? = nil) -> Void {
+                        onCompleted: @escaping (HistogramBuffer) -> Void) -> Void {
         
         let histogramBuffer = histogramBufferPool.nextResource
         
@@ -59,7 +59,7 @@ public class HistogramGenerator {
         
         commandBuffer.addCompletedHandler { _ in
             texture.release()
-            onCompleted?(histogramBuffer)
+            onCompleted(histogramBuffer)
         }
         
         commandEncoder.endEncoding()

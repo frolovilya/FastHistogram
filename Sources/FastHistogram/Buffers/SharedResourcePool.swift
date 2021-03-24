@@ -9,7 +9,7 @@ public class SharedResourcePool<T> where T: PoolResource {
     
     private let semaphore: DispatchSemaphore
     private var resources: [T]
-    private let syncQueue = DispatchQueue(label: "HistogramBufferPoolQueue")
+    private let syncQueue = DispatchQueue(label: "SharedResourcePoolQueue", qos: .userInteractive)
     
     public init(resources: [T]) {
         self.semaphore = DispatchSemaphore(value: resources.count)

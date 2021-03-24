@@ -10,7 +10,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let gpuHandler: GPUHandler
     private let renderPipelineState: MTLRenderPipelineState
     
-    public var histogramBuffer: HistogramBuffer?
+    private var histogramBuffer: HistogramBuffer?
     
     private static var barVertices: [simd_float2] = [
         [0, 0], [0, 1], [1, 1], // left triangle
@@ -21,24 +21,30 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private var layerColors: [RGBAColor]
     
     private var updatePublisherCancellable: AnyCancellable?
-
+    
+    private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
+    
     public init(gpuHandler: GPUHandler,
-                view: MTKView,
                 binsCount: Int,
                 layerColors: [RGBAColor]) throws {
         self.gpuHandler = gpuHandler
-        self.view = view
         self.binsCount = binsCount
         self.layerColors = layerColors
         
         // init render pipeline states
         renderPipelineState = try HistogramRenderer.initRenderPipelineState(device: gpuHandler.device,
                                                                             library: gpuHandler.library)
-                
+        
         // setup view
+        view = MTKView(frame: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       device: gpuHandler.device)
         super.init()
-        self.view.device = gpuHandler.device
-        self.view.delegate = self
+
+        view.delegate = self
+        view.isPaused = true
+        view.enableSetNeedsDisplay = false
+        // view.isOpaque = false
+        view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0.5)
     }
     
     private static func initRenderPipelineState(device: MTLDevice, library: MTLLibrary?) throws -> MTLRenderPipelineState {
@@ -57,7 +63,14 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         return try device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
     }
     
-    private func renderingPass(view: MTKView) -> Void {
+    public func draw(histogramBuffer: HistogramBuffer) -> Void {
+        renderingQueue.async {
+            self.histogramBuffer = histogramBuffer
+            self.view.draw()
+        }
+    }
+    
+    public func renderingPass(view: MTKView) -> Void {
         guard let histogramBuffer = self.histogramBuffer else { return }
         
         // setup rendering encoder
