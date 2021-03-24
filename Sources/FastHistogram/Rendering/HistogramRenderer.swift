@@ -10,7 +10,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let gpuHandler: GPUHandler
     private let renderPipelineState: MTLRenderPipelineState
     
-    private let histogramBuffer: HistogramBuffer
+    public var histogramBuffer: HistogramBuffer?
     
     private static var barVertices: [simd_float2] = [
         [0, 0], [0, 1], [1, 1], // left triangle
@@ -25,14 +25,11 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     public init(gpuHandler: GPUHandler,
                 view: MTKView,
                 binsCount: Int,
-                layerColors: [RGBAColor],
-                histogramBuffer: HistogramBuffer) throws {
+                layerColors: [RGBAColor]) throws {
         self.gpuHandler = gpuHandler
         self.view = view
         self.binsCount = binsCount
         self.layerColors = layerColors
-        
-        self.histogramBuffer = histogramBuffer
         
         // init render pipeline states
         renderPipelineState = try HistogramRenderer.initRenderPipelineState(device: gpuHandler.device,
@@ -61,6 +58,8 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     }
     
     private func renderingPass(view: MTKView) -> Void {
+        guard let histogramBuffer = self.histogramBuffer else { return }
+        
         // setup rendering encoder
         guard let commandBuffer = gpuHandler.commandQueue.makeCommandBuffer(), // stores GPU commands
               let renderPassDescription = view.currentRenderPassDescriptor, // render destinations data
@@ -95,7 +94,11 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
                                       vertexStart: 0,
                                       vertexCount: HistogramRenderer.barVertices.count,
                                       instanceCount: binsCount * RGBL_4)
-                        
+        
+        commandBuffer.addCompletedHandler { _ in
+            histogramBuffer.release()
+        }
+        
         // finish commands encoding
         commandEncoder.endEncoding()
 

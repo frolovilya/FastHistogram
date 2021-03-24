@@ -1,47 +1,60 @@
 import MetalKit
+import CShaderHeader
 
-public class TextureFactory {
+public final class HistogramTexture: PoolResource {
     
-    private let device: MTLDevice
+    let metalTexture: MTLTexture
     
-    public init(device: MTLDevice) {
-        self.device = device
-    }
-    
-    public func createTexture(size: MTLSize) -> MTLTexture? {
+    public init(device: MTLDevice, size: MTLSize) {
         let textureDescriptor = MTLTextureDescriptor()
         textureDescriptor.pixelFormat = .bgra8Unorm
         textureDescriptor.width = size.width
         textureDescriptor.height = size.height
         
-        return device.makeTexture(descriptor: textureDescriptor)
+        metalTexture = device.makeTexture(descriptor: textureDescriptor)!
     }
     
-    public func createTextureForImage(cgImage: CGImage) -> MTLTexture? {
-        return try? MTKTextureLoader(device: device)
+    public init(device: MTLDevice, cgImage: CGImage) {
+        metalTexture = try! MTKTextureLoader(device: device)
             .newTexture(cgImage: cgImage, options: nil)
     }
     
-    public func fillTexture(texture: MTLTexture,
-                            data: UnsafeRawPointer,
+    public static func makePool(device: MTLDevice, textureSize: MTLSize, poolSize: Int) -> SharedResourcePool<HistogramTexture> {
+        var textures: [HistogramTexture] = []
+        for _ in 0..<poolSize {
+            textures.append(HistogramTexture(device: device, size: textureSize))
+        }
+        return SharedResourcePool(resources: textures)
+    }
+    
+    var size: MTLSize {
+        MTLSizeMake(metalTexture.width, metalTexture.height, metalTexture.depth)
+    }
+    
+    public weak var pool: SharedResourcePool<HistogramTexture>?
+
+    public func release() -> Void {
+        pool?.release(resource: self)
+    }
+    
+    public func fillTexture(data: UnsafeRawPointer,
                             bytesPerRow: Int? = nil) -> Void {
         let region = MTLRegion(origin: MTLOriginMake(0, 0, 0),
-                               size: MTLSizeMake(texture.width, texture.height, 1))
+                               size: size)
                 
-        texture.replace(region: region,
+        metalTexture.replace(region: region,
                         mipmapLevel: 0,
                         withBytes: data,
-                        bytesPerRow: bytesPerRow ?? (RGBL_4 * texture.width))
+                        bytesPerRow: bytesPerRow ?? (RGBL_4 * metalTexture.width))
     }
     
-    public func fillTextureWithBGRAPixelData(texture: MTLTexture, pixelData: [UInt8]) -> Void {
-        let pointer = UnsafeMutablePointer<UInt8>.allocate(capacity: RGBL_4 * texture.width * texture.height)
+    public func fillTextureWithBGRAPixelData(pixelData: [UInt8]) -> Void {
+        let pointer = UnsafeMutablePointer<UInt8>.allocate(capacity: RGBL_4 * metalTexture.width * metalTexture.height)
         pointer.initialize(from: pixelData, count: pixelData.count)
-        
-        fillTexture(texture: texture, data: pointer)
+        fillTexture(data: pointer)
     }
     
-    public func fillTextureWithImageBufferData(texture: MTLTexture, imageBuffer: CVImageBuffer) -> Void {
+    public func fillTextureWithImageBufferData(imageBuffer: CVImageBuffer) -> Void {
         // Lock the image buffer
         CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
         defer {
@@ -62,15 +75,14 @@ public class TextureFactory {
         let width = CVPixelBufferGetWidth(imageBuffer)
         let height = CVPixelBufferGetHeight(imageBuffer)
 
-        guard texture.width == width && texture.height == height else {
+        guard metalTexture.width == width && metalTexture.height == height else {
             print("Texture's size in pixels doesn't match image buffer size")
             return
         }
                 
         let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
         
-        fillTexture(texture: texture,
-                    data: buffer,
+        fillTexture(data: buffer,
                     bytesPerRow: CVPixelBufferGetBytesPerRow(imageBuffer))
     }
     

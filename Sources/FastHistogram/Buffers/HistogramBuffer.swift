@@ -1,7 +1,7 @@
 import MetalKit
 import CShaderHeader
 
-public class HistogramBuffer {
+public final class HistogramBuffer: PoolResource {
     
     // [4 max bin values][histogram bins]
     public let metalBuffer: MTLBuffer
@@ -14,6 +14,20 @@ public class HistogramBuffer {
                                                   options: .storageModeShared)
         else { throw GPUOperationError.initializationError }
         self.metalBuffer = metalBuffer
+    }
+    
+    static func makePool(device: MTLDevice, binsCount: Int, poolSize: Int) throws -> SharedResourcePool<HistogramBuffer> {
+        var histogramBuffers: [HistogramBuffer] = []
+        for _ in 0..<poolSize {
+            histogramBuffers.append(try HistogramBuffer(device: device, binsCount: binsCount))
+        }
+        return SharedResourcePool(resources: histogramBuffers)
+    }
+    
+    public weak var pool: SharedResourcePool<HistogramBuffer>?
+
+    public func release() -> Void {
+        pool?.release(resource: self)
     }
     
     static func sizeBytes(binsCount: Int) -> Int {

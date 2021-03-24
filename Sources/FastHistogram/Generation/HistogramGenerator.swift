@@ -6,13 +6,11 @@ import CShaderHeader
 public class HistogramGenerator {
     
     private let gpuHandler: GPUHandler
-    
+    private var binsCount: Int
+    private let histogramBufferPool: SharedResourcePool<HistogramBuffer>
+
     private let zeroHistogramBufferComputePipelineState: MTLComputePipelineState
     private let generateHistogramComputePipelineState: MTLComputePipelineState
-    
-    private var binsCount: Int
-
-    public let histogramBuffer: HistogramBuffer
     
     public init(gpuHandler: GPUHandler,
                 binsCount: Int) throws {
@@ -22,9 +20,11 @@ public class HistogramGenerator {
         // init compute pipeline states
         self.generateHistogramComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "generateHistogram")
         self.zeroHistogramBufferComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "zeroHistogramBuffer")
-                
-        // init result buffer
-        self.histogramBuffer = try HistogramBuffer(device: gpuHandler.device, binsCount: binsCount)
+
+        // init result buffer pool
+        self.histogramBufferPool = try HistogramBuffer.makePool(device: gpuHandler.device,
+                                                                binsCount: binsCount,
+                                                                poolSize: 3)
     }
     
     private static func initComputePipelineState(gpuHandler: GPUHandler, functionName: String) throws -> MTLComputePipelineState {
@@ -34,19 +34,14 @@ public class HistogramGenerator {
             throw GPUOperationError.initializationError
         }
     }
-    
-    public func process(texture: MTLTexture,
-                        isLinear: Bool) -> Void {
-        histogramGenerationPass(texture: texture,
-                                size: MTLSizeMake(texture.width, texture.height, texture.depth),
-                                isLinear: isLinear)
-    }
-    
-    private func histogramGenerationPass(texture: MTLTexture,
-                                         size: MTLSize,
-                                         isLinear: Bool) -> Void {
+
+    public func process(texture: HistogramTexture,
+                        isLinear: Bool,
+                        onCompleted: ((HistogramBuffer) -> Void)? = nil) -> Void {
         
-//        gpuHandler.startProgrammaticCapture()
+        let histogramBuffer = histogramBufferPool.nextResource
+        
+        // gpuHandler.startProgrammaticCapture()
         
         // setup compute encoder
         guard let commandBuffer = gpuHandler.commandQueue.makeCommandBuffer(), // stores GPU commands
@@ -56,18 +51,24 @@ public class HistogramGenerator {
             return
         }
         
-        encodeZeroHistogramBuffer(commandEncoder: commandEncoder)
-        encodeGenerateHistogram(commandEncoder: commandEncoder, texture: texture, size: size, isLinear: isLinear)
+        encodeZeroHistogramBuffer(commandEncoder: commandEncoder, histogramBuffer: histogramBuffer)
+        encodeGenerateHistogram(commandEncoder: commandEncoder,
+                                texture: texture.metalTexture,
+                                size: texture.size,
+                                isLinear: isLinear)
+        
+        commandBuffer.addCompletedHandler { _ in
+            texture.release()
+            onCompleted?(histogramBuffer)
+        }
         
         commandEncoder.endEncoding()
         commandBuffer.commit()
         
-//        gpuHandler.stopProgrammaticCapture()
-        
-        commandBuffer.waitUntilCompleted()
+        // gpuHandler.stopProgrammaticCapture()
     }
     
-    private func encodeZeroHistogramBuffer(commandEncoder: MTLComputeCommandEncoder) {
+    private func encodeZeroHistogramBuffer(commandEncoder: MTLComputeCommandEncoder, histogramBuffer: HistogramBuffer) {
         commandEncoder.setComputePipelineState(zeroHistogramBufferComputePipelineState)
 
         commandEncoder.setBuffer(histogramBuffer.metalBuffer,
