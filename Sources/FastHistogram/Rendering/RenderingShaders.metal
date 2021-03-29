@@ -22,7 +22,8 @@ vertex RasterizerData histogramBarVertex(uint vertexId [[ vertex_id ]],
                                          constant VertexIn *vertices [[ buffer(HistogramVertexInputIndexVertices) ]],
                                          constant uniform<uint> *histogramBuffer [[ buffer(HistogramVertexInputIndexHistogramBuffer) ]],
                                          constant uniform<uint> &binsCount [[ buffer(HistogramVertexInputIndexBinsCount) ]],
-                                         constant uniform<float4> *layerColors [[ buffer(HistogramVertexInputIndexColors) ]]) {
+                                         constant uniform<float4> *layerColors [[ buffer(HistogramVertexInputIndexColors) ]],
+                                         constant uniform<bool> *enabledLayers [[ buffer(HistogramVertexInputIndexEnabledLayers) ]]) {
     RasterizerData out;
     
     // red - 0
@@ -30,6 +31,15 @@ vertex RasterizerData histogramBarVertex(uint vertexId [[ vertex_id ]],
     // blue - 2
     // alpha - 3
     uint layerIndex = instanceId % RGBL_4;
+    
+    // do not position, if disabled
+    bool isEnabled = enabledLayers[layerIndex];
+    if (!isEnabled) {
+        out.position = float4(0, 0, 0, 0);
+        out.color = float4(0, 0, 0, 0);
+        
+        return out;
+    }
     
     // rgbl data is packed into uint4 in the input histogram buffer
     uint binIndex = instanceId / RGBL_4;

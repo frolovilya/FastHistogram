@@ -19,7 +19,8 @@ enum HistogramVertexInputIndex {
     HistogramVertexInputIndexVertices,
     HistogramVertexInputIndexHistogramBuffer,
     HistogramVertexInputIndexBinsCount,
-    HistogramVertexInputIndexColors
+    HistogramVertexInputIndexColors,
+    HistogramVertexInputIndexEnabledLayers
 };
 
 #endif /* Common_h */

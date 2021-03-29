@@ -5,12 +5,11 @@ import CShaderHeader
 
 public class HistogramRenderer: NSObject, MTKViewDelegate {
     
-    public let view: MTKView
-    
     private let gpuHandler: GPUHandler
     private let renderPipelineState: MTLRenderPipelineState
     
     private var histogramBuffer: HistogramBuffer?
+    private var enabledRGBLLayers: [Bool] = [true, true, true, true]
     
     private static var barVertices: [simd_float2] = [
         [0, 0], [0, 1], [1, 1], // left triangle
@@ -24,9 +23,22 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     
     private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
     
+    private var histogramView: HistogramView!
+    
+    #if os(OSX)
+    public var view: some NSView {
+        histogramView.view
+    }
+    #else
+    public var view: some UIView {
+        histogramView.view
+    }
+    #endif
+    
     public init(gpuHandler: GPUHandler,
                 binsCount: Int,
-                layerColors: [RGBAColor]) throws {
+                layerColors: [RGBAColor],
+                backgroundColor: RGBAColor) throws {
         self.gpuHandler = gpuHandler
         self.binsCount = binsCount
         self.layerColors = layerColors
@@ -35,16 +47,12 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         renderPipelineState = try HistogramRenderer.initRenderPipelineState(device: gpuHandler.device,
                                                                             library: gpuHandler.library)
         
-        // setup view
-        view = MTKView(frame: CGRect(x: 0, y: 0, width: 1, height: 1),
-                       device: gpuHandler.device)
         super.init()
 
-        view.delegate = self
-        view.isPaused = true
-        view.enableSetNeedsDisplay = false
-        // view.isOpaque = false
-        view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0.5)
+        // setup view
+        histogramView = HistogramView(device: gpuHandler.device,
+                                      delegate: self,
+                                      backgroundColor: backgroundColor)
     }
     
     private static func initRenderPipelineState(device: MTLDevice, library: MTLLibrary?) throws -> MTLRenderPipelineState {
@@ -63,10 +71,15 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         return try device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
     }
     
-    public func draw(histogramBuffer: HistogramBuffer) -> Void {
+    public func draw(histogramBuffer: HistogramBuffer,
+                     showRed: Bool = true,
+                     showGreen: Bool = true,
+                     showBlue: Bool = true,
+                     showLuminance: Bool = true) -> Void {
         renderingQueue.async {
+            self.enabledRGBLLayers = [showRed, showGreen, showBlue, showLuminance]
             self.histogramBuffer = histogramBuffer
-            self.view.draw()
+            self.histogramView.view.draw()
         }
     }
     
@@ -100,6 +113,10 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         commandEncoder.setVertexBytes(&layerColors,
                                       length: MemoryLayout<RGBAColor>.stride * layerColors.count,
                                       index: Int(HistogramVertexInputIndexColors.rawValue))
+        
+        commandEncoder.setVertexBytes(&enabledRGBLLayers,
+                                      length: MemoryLayout<Bool>.stride * RGBL_4,
+                                      index: Int(HistogramVertexInputIndexEnabledLayers.rawValue))
 
         // commandEncoder.setTriangleFillMode(.lines)
         
