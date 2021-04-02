@@ -54,7 +54,7 @@ public final class HistogramTexture: PoolResource {
         fillTexture(data: pointer)
     }
     
-    public func fillTextureWithImageBufferData(imageBuffer: CVImageBuffer) -> Void {
+    public func fillTextureWithImageBufferData(imageBuffer: CVImageBuffer) throws -> Void {
         // Lock the image buffer
         CVPixelBufferLockBaseAddress(imageBuffer, .readOnly)
         defer {
@@ -64,12 +64,12 @@ public final class HistogramTexture: PoolResource {
         
         guard CVPixelBufferGetPixelFormatType(imageBuffer) == kCVPixelFormatType_32BGRA else {
             print("Only BGRA pixel format supported")
-            return
+            throw GPUOperationError.textureFormatError
         }
         
         guard let baseAddress = CVPixelBufferGetBaseAddress(imageBuffer) else {
             print("Unable to get CVImageBuffer's base address")
-            return
+            throw GPUOperationError.textureFormatError
         }
         
         let width = CVPixelBufferGetWidth(imageBuffer)
@@ -77,7 +77,7 @@ public final class HistogramTexture: PoolResource {
 
         guard metalTexture.width == width && metalTexture.height == height else {
             print("Texture's size in pixels doesn't match image buffer size")
-            return
+            throw GPUOperationError.textureFormatError
         }
                 
         let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)

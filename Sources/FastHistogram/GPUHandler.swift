@@ -1,9 +1,5 @@
 import MetalKit
 
-public enum GPUOperationError: Error {
-    case initializationError
-}
-
 public class GPUHandler {
     
     public let device: MTLDevice
