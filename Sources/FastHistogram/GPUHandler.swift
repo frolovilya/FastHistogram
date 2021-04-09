@@ -1,11 +1,19 @@
 import MetalKit
 
+/**
+ Wraps GPU device and required resources to be shared between histogram generation and rendering classes.
+ */
 public class GPUHandler {
     
     public let device: MTLDevice
     let commandQueue: MTLCommandQueue
     let library: MTLLibrary
     
+    /**
+     Init new `GPUHandler` instance.
+     
+     - Throws `initializationError` if unable to initialize all required GPU resources.
+     */
     public init() throws {
         // init GPU device
         guard let device = MTLCreateSystemDefaultDevice()
@@ -23,7 +31,8 @@ public class GPUHandler {
         self.library = library
     }
     
-    /// The capture manager captures commands only within MTLCommandBuffer objects that are created after the capture starts and are committed before the capture stops.
+    /// The capture manager captures commands only within MTLCommandBuffer objects
+    /// that are created after the capture starts and are committed before the capture stops.
     func startProgrammaticCapture() {
         let captureManager = MTLCaptureManager.shared()
         let captureDescriptor = MTLCaptureDescriptor()

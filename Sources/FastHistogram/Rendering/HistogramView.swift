@@ -1,6 +1,10 @@
 import MetalKit
 
+/**
+ `MTKView` histogram view wrapper.
+ */
 class HistogramView {
+    
     let view: MTKView
     
     init(device: MTLDevice,

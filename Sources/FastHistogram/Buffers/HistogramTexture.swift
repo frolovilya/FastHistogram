@@ -1,28 +1,33 @@
 import MetalKit
 import CShaderHeader
 
+/**
+ Wraps image data as Metal texture for histogram generation.
+ */
 public final class HistogramTexture: PoolResource {
     
     let metalTexture: MTLTexture
     
-    public init(device: MTLDevice, size: MTLSize) {
+    public init(gpuHandler: GPUHandler, size: MTLSize) {
         let textureDescriptor = MTLTextureDescriptor()
         textureDescriptor.pixelFormat = .bgra8Unorm
         textureDescriptor.width = size.width
         textureDescriptor.height = size.height
         
-        metalTexture = device.makeTexture(descriptor: textureDescriptor)!
+        metalTexture = gpuHandler.device.makeTexture(descriptor: textureDescriptor)!
     }
     
-    public init(device: MTLDevice, cgImage: CGImage) {
-        metalTexture = try! MTKTextureLoader(device: device)
+    public init(gpuHandler: GPUHandler, cgImage: CGImage) {
+        metalTexture = try! MTKTextureLoader(device: gpuHandler.device)
             .newTexture(cgImage: cgImage, options: nil)
     }
     
-    public static func makePool(device: MTLDevice, textureSize: MTLSize, poolSize: Int) -> SharedResourcePool<HistogramTexture> {
+    public static func makePool(gpuHandler: GPUHandler,
+                                textureSize: MTLSize,
+                                poolSize: Int) -> SharedResourcePool<HistogramTexture> {
         var textures: [HistogramTexture] = []
         for _ in 0..<poolSize {
-            textures.append(HistogramTexture(device: device, size: textureSize))
+            textures.append(HistogramTexture(gpuHandler: gpuHandler, size: textureSize))
         }
         return SharedResourcePool(resources: textures)
     }

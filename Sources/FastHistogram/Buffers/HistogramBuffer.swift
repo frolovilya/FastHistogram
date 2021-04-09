@@ -1,31 +1,46 @@
 import MetalKit
 import CShaderHeader
 
+/**
+ Buffer containing generated histogram data.
+ Wraps `MTLBuffer` to ease access to RGBL data.
+ */
 public final class HistogramBuffer: PoolResource {
     
-    // [4 max bin values][histogram bins]
-    public let metalBuffer: MTLBuffer
+    /**
+     Underlying metal buffer.
+     
+     Memory layout is the following: [4 max bin values: four 32-bit uints] + [RGBL bins: four 32-bit uints] * binsCount
+     */
+    let metalBuffer: MTLBuffer
+    
+    /// Number of RGBL bins this buffer contains.
     public let binsCount: Int
     
-    init(device: MTLDevice, binsCount: Int) throws {
+    init(gpuHandler: GPUHandler, binsCount: Int) throws {
+        guard binsCount > 0 else { throw GPUOperationError.illegalArgument }
         self.binsCount = binsCount
         
-        guard let metalBuffer = device.makeBuffer(length: HistogramBuffer.sizeBytes(binsCount: binsCount),
-                                                  options: .storageModeShared)
+        guard let metalBuffer = gpuHandler.device.makeBuffer(length: HistogramBuffer.sizeBytes(binsCount: binsCount),
+                                                             options: .storageModeShared)
         else { throw GPUOperationError.initializationError }
         self.metalBuffer = metalBuffer
     }
     
-    static func makePool(device: MTLDevice, binsCount: Int, poolSize: Int) throws -> SharedResourcePool<HistogramBuffer> {
+    static func makePool(gpuHandler: GPUHandler, binsCount: Int, poolSize: Int) throws -> SharedResourcePool<HistogramBuffer> {
+        guard binsCount > 0 else { throw GPUOperationError.illegalArgument }
+        guard poolSize > 0 else { throw GPUOperationError.illegalArgument }
+
         var histogramBuffers: [HistogramBuffer] = []
         for _ in 0..<poolSize {
-            histogramBuffers.append(try HistogramBuffer(device: device, binsCount: binsCount))
+            histogramBuffers.append(try HistogramBuffer(gpuHandler: gpuHandler, binsCount: binsCount))
         }
         return SharedResourcePool(resources: histogramBuffers)
     }
     
     public weak var pool: SharedResourcePool<HistogramBuffer>?
 
+    /// Release this buffer instance back to the shared resource pool.
     public func release() -> Void {
         pool?.release(resource: self)
     }
@@ -43,7 +58,17 @@ public final class HistogramBuffer: PoolResource {
                                                  capacity: capacity)
     }
     
-    public func getBin(index: Int) -> RGBLBin {
+    /**
+     Returns Red, Green, Blue and Luminance data at a given `index`.
+     
+     Bin data is not normalized. Divide by `maxBinValues` in order to get normalized RGBL.
+     
+     - Parameter index: bin number.
+     - Returns: `RGBLBin` or `nil` if given `index` is incorrect.
+     */
+    public func getBin(index: Int) -> RGBLBin? {
+        guard index >= 0 && index < binsCount else { return nil }
+        
         let pointer = newPointer()
         
         let red = pointer.advanced(by: (index + 1) * RGBL_4 + Int(Red.rawValue)).pointee
@@ -54,6 +79,10 @@ public final class HistogramBuffer: PoolResource {
         return RGBLBin(red, green, blue, luminance)
     }
     
+    /**
+     Max bin cell values this histogram contains.
+     Use this data for RGBL normalization.
+     */
     public var maxBinValues: RGBLBin {
         let pointer = newPointer()
         
@@ -66,8 +95,9 @@ public final class HistogramBuffer: PoolResource {
     func dumpBufferContents() -> Void {
         print("bins = ")
         for i in 0..<binsCount {
-            let rgbl = getBin(index: i)
-            print("\(i): (\(rgbl[0]), \(rgbl[1]), \(rgbl[2]), \(rgbl[3]))")
+            if let rgbl = getBin(index: i) {
+                print("\(i): (\(rgbl[0]), \(rgbl[1]), \(rgbl[2]), \(rgbl[3]))")
+            }
         }
         
         print("maxBinValues = \(maxBinValues)")

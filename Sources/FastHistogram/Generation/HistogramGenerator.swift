@@ -3,6 +3,9 @@ import MetalKit
 import Combine
 import CShaderHeader
 
+/**
+ RGBL histogram generation on the GPU.
+ */
 public class HistogramGenerator {
     
     private let gpuHandler: GPUHandler
@@ -12,8 +15,24 @@ public class HistogramGenerator {
     private let zeroHistogramBufferComputePipelineState: MTLComputePipelineState
     private let generateHistogramComputePipelineState: MTLComputePipelineState
     
+    /**
+     Init new `HistogramGenerator` instance.
+     
+     - Parameter gpuHandler: `GPUHandler` instance
+     - Parameter binsCount: Number of histogram bins this generator is going to produce
+     - Parameter bufferPoolSize: Pool size for shared `HistogramBuffer` resources.
+                                 This parameter defines max number of buffers to be shared between GPU and CPU in parallel.
+     
+     - Throws: `initializationError` if unable to initialize required GPU resources.
+               `illegalArgument` if incorrect parameter values provided.
+     */
     public init(gpuHandler: GPUHandler,
-                binsCount: Int) throws {
+                binsCount: Int,
+                bufferPoolSize: Int = 3) throws {
+        
+        guard binsCount > 0 else { throw GPUOperationError.illegalArgument }
+        guard bufferPoolSize > 0 else { throw GPUOperationError.illegalArgument }
+        
         self.gpuHandler = gpuHandler
         self.binsCount = binsCount
         
@@ -22,12 +41,13 @@ public class HistogramGenerator {
         self.zeroHistogramBufferComputePipelineState = try HistogramGenerator.initComputePipelineState(gpuHandler: gpuHandler, functionName: "zeroHistogramBuffer")
 
         // init result buffer pool
-        self.histogramBufferPool = try HistogramBuffer.makePool(device: gpuHandler.device,
+        self.histogramBufferPool = try HistogramBuffer.makePool(gpuHandler: gpuHandler,
                                                                 binsCount: binsCount,
-                                                                poolSize: 3)
+                                                                poolSize: bufferPoolSize)
     }
     
-    private static func initComputePipelineState(gpuHandler: GPUHandler, functionName: String) throws -> MTLComputePipelineState {
+    private static func initComputePipelineState(gpuHandler: GPUHandler,
+                                                 functionName: String) throws -> MTLComputePipelineState {
         if let computeFunction = gpuHandler.library.makeFunction(name: functionName) {
             return try gpuHandler.device.makeComputePipelineState(function: computeFunction)
         } else {
@@ -35,9 +55,21 @@ public class HistogramGenerator {
         }
     }
 
+    /**
+     Generate histogram for `HistogramTexture` on the GPU and return `HistogramBuffer` instance when done.
+     
+     This method may wait for a next available `HistogramBuffer` instance from a buffer pool.
+     Max concurrency level is defined by `bufferPoolSize` parameter to the `HistogramGenerator.init` constructor.
+     
+     - Parameter texture: `HistogramTexture` with image data to process
+     - Parameter isLinear: If `false`, then Gamma-encoded histogram is generated (with gamma value 2.4).
+                           When `true`, then linearized histogarm is generated.
+     - Parameter onCompleted: Closure to be called when GPU finishes histogram generation.
+     - Parameter buffer: Histogram data. Note that `HistogramBuffer` returned must be released to the pool by calling `.release()` method after you've done with it's processing.
+     */
     public func process(texture: HistogramTexture,
                         isLinear: Bool,
-                        onCompleted: @escaping (HistogramBuffer) -> Void) -> Void {
+                        onCompleted: @escaping (_ buffer: HistogramBuffer) -> Void) -> Void {
         
         let histogramBuffer = histogramBufferPool.nextResource
         

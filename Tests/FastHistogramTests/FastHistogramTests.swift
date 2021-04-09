@@ -14,9 +14,9 @@ final class FastHistogramTests: XCTestCase {
         gpuHandler = try GPUHandler()
         histogramGenerator = try HistogramGenerator(gpuHandler: gpuHandler,
                                                     binsCount: FastHistogramTests.binsCount)
-        texturePool = HistogramTexture.makePool(device: gpuHandler.device,
-                                                    textureSize: MTLSizeMake(2, 2, 1),
-                                                    poolSize: 3)
+        texturePool = HistogramTexture.makePool(gpuHandler: gpuHandler,
+                                                textureSize: MTLSizeMake(2, 2, 1),
+                                                poolSize: 3)
     }
 
     private func linearize(_ value: Double) -> Double {
@@ -32,9 +32,10 @@ final class FastHistogramTests: XCTestCase {
         for i in 0..<histogram.binsCount {
             let expectedBin = expectedBins[i] != nil ? expectedBins[i]! : RGBLBin(0, 0, 0, 0)
             let actualBin = histogram.getBin(index: i)
+            XCTAssertNotNil(actualBin)
             
-            print(i, expectedBin, actualBin)
-            XCTAssertEqual(actualBin, expectedBin)
+            print(i, expectedBin, actualBin!)
+            XCTAssertEqual(actualBin!, expectedBin)
         }
     }
     

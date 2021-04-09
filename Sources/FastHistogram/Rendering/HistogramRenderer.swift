@@ -5,25 +5,23 @@ import CShaderHeader
 
 public class HistogramRenderer: NSObject, MTKViewDelegate {
     
-    private let gpuHandler: GPUHandler
-    private let renderPipelineState: MTLRenderPipelineState
-    
-    private var histogramBuffer: HistogramBuffer?
-    private var enabledRGBLLayers: [Bool] = [true, true, true, true]
-    
     private static var barVertices: [simd_float2] = [
         [0, 0], [0, 1], [1, 1], // left triangle
         [0, 0], [1, 0], [1, 1]  // right triangle
     ]
     
+    private let gpuHandler: GPUHandler
+    private let renderPipelineState: MTLRenderPipelineState
+    private var histogramView: HistogramView!
+
+    private var histogramBuffer: HistogramBuffer?
+    private var enabledRGBLLayers: [Bool] = [true, true, true, true]
     private var binsCount: Int
     private var layerColors: [RGBAColor]
     
     private var updatePublisherCancellable: AnyCancellable?
     
     private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
-    
-    private var histogramView: HistogramView!
     
     #if os(OSX)
     public var view: some NSView {
