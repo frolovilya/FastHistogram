@@ -3,6 +3,9 @@ import MetalKit
 import Combine
 import CShaderHeader
 
+/**
+ Render RGBL histogram data on the GPU.
+ */
 public class HistogramRenderer: NSObject, MTKViewDelegate {
     
     private static var barVertices: [simd_float2] = [
@@ -24,15 +27,25 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
     
     #if os(OSX)
+    /// Renderer underlying view
     public var view: some NSView {
         histogramView.view
     }
     #else
+    /// Renderer underlying view
     public var view: some UIView {
         histogramView.view
     }
     #endif
     
+    /**
+     Initiate new histogram renderer instance.
+     
+     - Parameter gpuHandler: `GPUHandler` instance.
+     - Parameter binsCount: number of histogram bins to draw.
+     - Parameter layerColors: vector of four RGB colors to represent RGBL layers.
+     - Parameter backgroundColor: histogram's background color.
+     */
     public init(gpuHandler: GPUHandler,
                 binsCount: Int,
                 layerColors: [RGBAColor],
@@ -69,6 +82,16 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         return try device.makeRenderPipelineState(descriptor: renderPipelineDescriptor)
     }
     
+    /**
+     Draw histogram data from `HistogramBuffer`.
+     
+     - Parameters:
+        - histogramBuffer: buffer with histogram data. Note that the buffer will be auto-released when histogram is rendered.
+        - showRed: show Red layer.
+        - showGreen: show Green layer.
+        - showBlue: show Blue layer.
+        - showLuminance: show Luminance layer.
+     */
     public func draw(histogramBuffer: HistogramBuffer,
                      showRed: Bool = true,
                      showGreen: Bool = true,
@@ -81,7 +104,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         }
     }
     
-    public func renderingPass(view: MTKView) -> Void {
+    func renderingPass(view: MTKView) -> Void {
         guard let histogramBuffer = self.histogramBuffer else { return }
         
         // setup rendering encoder
