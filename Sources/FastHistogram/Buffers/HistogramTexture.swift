@@ -75,6 +75,7 @@ public final class HistogramTexture: PoolResource {
         let region = MTLRegion(origin: MTLOriginMake(0, 0, 0),
                                size: size)
                 
+        // TODO: check https://developer.apple.com/documentation/metal/mtlbuffer/1613852-maketexture
         metalTexture.replace(region: region,
                         mipmapLevel: 0,
                         withBytes: data,

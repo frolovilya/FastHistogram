@@ -45,7 +45,13 @@ void addToBin(volatile device atomic_uint *bin,
 }
 
 kernel void zeroHistogramBuffer(uint index [[ thread_position_in_grid ]],
+                                constant uniform<uint> &binsCount [[ buffer(HistogramGeneratorInputIndexBinsCount) ]],
                                 volatile device uint *histogram [[ buffer(HistogramGeneratorInputIndexHistogramBuffer) ]]) {
+    // return if index is out of bounds
+    if (index >= (binsCount + 1) * RGBL_4) {
+        return;
+    }
+    
     histogram[index] = 0;
 }
 
@@ -54,6 +60,11 @@ kernel void generateHistogram(texture2d<float, access::sample> frame [[ texture(
                               constant uniform<bool> &isLinear [[ buffer(HistogramGeneratorInputIndexIsLinear) ]],
                               uint2 index [[ thread_position_in_grid ]],
                               volatile device atomic_uint *output [[ buffer(HistogramGeneratorInputIndexHistogramBuffer) ]]) {
+    
+    // return if index is out of bounds
+    if (index.x >= frame.get_width() || index.y >= frame.get_height()) {
+        return;
+    }
     
     // read gamma encoded normalized color RGBA values
     float4 rgba = frame.read(index);

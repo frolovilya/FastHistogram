@@ -107,12 +107,23 @@ public class HistogramGenerator {
                                  offset: 0,
                                  index: Int(HistogramGeneratorInputIndexHistogramBuffer.rawValue))
         
-        let gridSize = MTLSizeMake(histogramBuffer.capacity, 1, 1)
-        let threadsPerGroup = MTLSizeMake(min(zeroHistogramBufferComputePipelineState.maxTotalThreadsPerThreadgroup,
-                                              histogramBuffer.capacity), 1, 1)
+        commandEncoder.setBytes(&binsCount,
+                                length: MemoryLayout<simd_uint1>.stride,
+                                index: Int(HistogramGeneratorInputIndexBinsCount.rawValue))
         
-        commandEncoder.dispatchThreads(gridSize,
-                                       threadsPerThreadgroup: threadsPerGroup)
+        // init grid size
+        let w = min(histogramBuffer.capacity, zeroHistogramBufferComputePipelineState.threadExecutionWidth)
+        let threadsPerThreadgroup = MTLSizeMake(w, 1, 1)
+        let threadgroupsPerGrid = MTLSizeMake((histogramBuffer.capacity + w - 1) / w, 1, 1)
+        
+        if (gpuHandler.supportsNonUniformThreadgroupSize) {
+            let gridSize = MTLSizeMake(histogramBuffer.capacity, 1, 1)
+            commandEncoder.dispatchThreads(gridSize,
+                                           threadsPerThreadgroup: threadsPerThreadgroup)
+        } else {
+            commandEncoder.dispatchThreadgroups(threadgroupsPerGrid,
+                                                threadsPerThreadgroup: threadsPerThreadgroup)
+        }
     }
 
     private func encodeGenerateHistogram(commandEncoder: MTLComputeCommandEncoder,
@@ -121,7 +132,6 @@ public class HistogramGenerator {
                                          isLinear: Bool) {
         commandEncoder.setComputePipelineState(generateHistogramComputePipelineState)
 
-        // init buffers
         commandEncoder.setTexture(texture,
                                   index: Int(HistogramGeneratorInputIndexTexture.rawValue))
         
@@ -139,10 +149,18 @@ public class HistogramGenerator {
         // init grid size
         let w = min(size.width, generateHistogramComputePipelineState.threadExecutionWidth)
         let h = min(size.height, generateHistogramComputePipelineState.maxTotalThreadsPerThreadgroup / w)
-        let threadsPerGroup = MTLSizeMake(w, h, 1)
+        let threadsPerThreadgroup = MTLSizeMake(w, h, 1)
+        let threadgroupsPerGrid = MTLSizeMake((size.width + w - 1) / w,
+                                              (size.height + h - 1) / h,
+                                              1)
 
-        commandEncoder.dispatchThreads(size,
-                                       threadsPerThreadgroup: threadsPerGroup)
+        if (gpuHandler.supportsNonUniformThreadgroupSize) {
+            commandEncoder.dispatchThreads(size,
+                                           threadsPerThreadgroup: threadsPerThreadgroup)
+        } else {
+            commandEncoder.dispatchThreadgroups(threadgroupsPerGrid,
+                                                threadsPerThreadgroup: threadsPerThreadgroup)
+        }
     }
 
 }

@@ -49,4 +49,16 @@ public class GPUHandler {
         captureManager.stopCapture()
     }
     
+    var supportsNonUniformThreadgroupSize: Bool {
+        return device.supportsFamily(.common3)
+            || device.supportsFamily(.apple4)
+            || device.supportsFamily(.apple5)
+            || device.supportsFamily(.apple6)
+            || device.supportsFamily(.apple7)
+            || device.supportsFamily(.mac1)
+            || device.supportsFamily(.mac2)
+            || device.supportsFamily(.macCatalyst1)
+            || device.supportsFamily(.macCatalyst2)
+    }
+    
 }

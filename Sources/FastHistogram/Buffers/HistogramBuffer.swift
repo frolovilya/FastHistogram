@@ -49,6 +49,7 @@ public final class HistogramBuffer: PoolResource {
         return MemoryLayout<RGBLBinCell>.stride * RGBL_4 * (binsCount + 1)
     }
     
+    /// Number of `RGBLBinCell`s inside this histogram buffer
     var capacity: Int {
         return (binsCount + 1) * RGBL_4
     }
