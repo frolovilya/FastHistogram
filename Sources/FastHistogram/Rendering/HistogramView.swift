@@ -11,7 +11,7 @@ class HistogramView {
          delegate: MTKViewDelegate,
          backgroundColor: RGBAColor) {
         
-        view = MTKView(frame: CGRect(x: 0, y: 0, width: 256, height: 100),
+        view = MTKView(frame: CGRect(x: 0, y: 0, width: 1, height: 1),
                        device: device)
         view.delegate = delegate
         

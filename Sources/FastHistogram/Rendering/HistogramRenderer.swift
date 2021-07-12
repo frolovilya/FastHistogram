@@ -27,12 +27,12 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
     
     #if os(OSX)
-    /// Renderer underlying view
+    /// Renderer's underlying view
     public var view: some NSView {
         histogramView.view
     }
     #else
-    /// Renderer underlying view
+    /// Renderer's underlying view
     public var view: some UIView {
         histogramView.view
     }

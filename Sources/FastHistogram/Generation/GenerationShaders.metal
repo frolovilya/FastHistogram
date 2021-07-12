@@ -28,7 +28,7 @@ unsigned int normalizedValueToBinIndex(float value, unsigned int binsCount) {
 }
 
 /**
- Calculate luminocity for a given RGB value.
+ Calculate luminance for a given RGB value.
  https://en.wikipedia.org/wiki/Relative_luminance
  */
 float sRGBToRelativeLuminance(float3 rgb) {
