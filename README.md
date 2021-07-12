@@ -28,7 +28,7 @@ Use Xcode's built-in Swift Package Manager:
 _FastHistogram_ provides two components for generation and rendering which can be used independently.
 Here's how you could wrap everything into a `ViewModel` to generate image's histogram and render it into a SwithUI `View`.
 
-```
+```swift
 import FastHistogram
 
 class HistogramViewModel {
@@ -71,7 +71,7 @@ class HistogramViewModel {
 ```
 
 Now simply show the histogram renderer's view wrapping it into a `UIViewRepresentable` or `NSViewRepresentable`:
-```
+```swift
 import SwiftUI
 
 @main
@@ -100,7 +100,7 @@ When dealing with textures and buffers obtained from a shared resource pool, you
 In the simple example above, `histogramGenerator.process` releases the `HistogramTexture` object when finished processing
 and `histogramRenderer.draw` releases the `HistogramBuffer` object once it's rendered.
 
-```
+```swift
 import Combine
 import AVFoundation
 
