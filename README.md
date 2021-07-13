@@ -9,6 +9,8 @@ Bar height represents a count of pixels on an image with a corresponding color o
 
 Pixel colors inside the sRGB color space are not linear, but with `gamma=2.4` coefficient applied.
 _FastHistogram_ supports both linear and gamma-encoded histogram generation and rendering.
+    
+![Histogram](https://user-images.githubusercontent.com/271293/125408301-73735c00-e3c3-11eb-88ed-bf7f97f15941.png)
 
 
 ## Installation
