@@ -45,7 +45,7 @@ public final class HistogramTexture: PoolResource {
      */
     public static func makePool(gpuHandler: GPUHandler,
                                 textureSize: MTLSize,
-                                poolSize: Int) -> SharedResourcePool<HistogramTexture> {
+                                poolSize: Int = 3) -> SharedResourcePool<HistogramTexture> {
         var textures: [HistogramTexture] = []
         for _ in 0..<poolSize {
             textures.append(HistogramTexture(gpuHandler: gpuHandler, size: textureSize))
@@ -75,7 +75,6 @@ public final class HistogramTexture: PoolResource {
         let region = MTLRegion(origin: MTLOriginMake(0, 0, 0),
                                size: size)
                 
-        // TODO: check https://developer.apple.com/documentation/metal/mtlbuffer/1613852-maketexture
         metalTexture.replace(region: region,
                         mipmapLevel: 0,
                         withBytes: data,

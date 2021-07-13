@@ -3,5 +3,6 @@ import XCTest
 import FastHistogramTests
 
 var tests = [XCTestCaseEntry]()
-tests += FastHistogramTests.allTests()
+tests += HistogramGeneratorTests.allTests()
+tests += SharedResourcePoolTests.allTests()
 XCTMain(tests)

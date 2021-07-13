@@ -2,7 +2,7 @@ import XCTest
 import simd
 @testable import FastHistogram
 
-final class FastHistogramTests: XCTestCase {
+final class HistogramGeneratorTests: XCTestCase {
     
     private static let binsCount: Int = 256
     
@@ -13,7 +13,7 @@ final class FastHistogramTests: XCTestCase {
     override func setUpWithError() throws {
         gpuHandler = try GPUHandler()
         histogramGenerator = try HistogramGenerator(gpuHandler: gpuHandler,
-                                                    binsCount: FastHistogramTests.binsCount)
+                                                    binsCount: HistogramGeneratorTests.binsCount)
         texturePool = HistogramTexture.makePool(gpuHandler: gpuHandler,
                                                 textureSize: MTLSizeMake(2, 2, 1),
                                                 poolSize: 3)
@@ -24,7 +24,7 @@ final class FastHistogramTests: XCTestCase {
     }
     
     private func binIndex(_ value: Double) -> Int {
-        Int(round(value * Double(FastHistogramTests.binsCount - 1)))
+        Int(round(value * Double(HistogramGeneratorTests.binsCount - 1)))
     }
     
     private func checkHistogramBuffer(histogram: HistogramBuffer,
@@ -56,7 +56,7 @@ final class FastHistogramTests: XCTestCase {
             histogramBuffer.dumpBufferContents()
             
             self.checkHistogramBuffer(histogram: histogramBuffer,
-                                      expectedBins: [FastHistogramTests.binsCount - 1: RGBLBin(4, 4, 4, 4)])
+                                      expectedBins: [HistogramGeneratorTests.binsCount - 1: RGBLBin(4, 4, 4, 4)])
             
             XCTAssertEqual(histogramBuffer.maxBinValues, RGBLBin(4, 4, 4, 4))
             

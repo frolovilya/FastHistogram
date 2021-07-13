@@ -1,10 +1,10 @@
 # FastHistogram
 
-GPU-based image RGBL histogram calculation and rendering.
+GPU-based image RGBL histogram calculation and rendering. Uses Metal to calculate and draw high-FPS histograms.
 
 
 ## What's RGBL Histogram?
-RGBL histograms shows Red, Green, Blue and Luminocity channels bar chart for an image.
+RGBL histogram shows Red, Green, Blue and Luminocity channels bar chart for an image.
 Bar height represents a count of pixels on an image with a corresponding color or luminocity.
 
 Pixel colors inside the sRGB color space are not linear, but with `gamma=2.4` coefficient applied.
@@ -23,9 +23,14 @@ Use Xcode's built-in Swift Package Manager:
 
 ## Usage
 
+_FastHistogram_ provides two components for generation and rendering which can be used independently.
+`HistogramGenerator` uses `HistogramTexture` filled with pixel data from an image and outputs `HistogramBuffer` with RGBL data.
+`HistogramRenderer` takes `HistogramBuffer` as an argument and draws RGBL bins.
+Both generation and rendering phases are performed on the GPU.
+
+
 ### Wrapping Into A Simple ViewModel
 
-_FastHistogram_ provides two components for generation and rendering which can be used independently.
 Here's how you could wrap everything into a `ViewModel` to generate image's histogram and render it into a SwithUI `View`.
 
 ```swift
@@ -46,10 +51,10 @@ class HistogramViewModel {
         // Init shared GPU handler
         let gpuHandler = try! GPUHandler()
         
-        self.histogramGenerator = try! HistogramGenerator(gpuHandler: gpuHandler,
-                                                          binsCount: HistogramViewModel.binsCount)
+        histogramGenerator = try! HistogramGenerator(gpuHandler: gpuHandler,
+                                                     binsCount: HistogramViewModel.binsCount)
         
-        self.histogramRenderer = try! HistogramRenderer(
+        histogramRenderer = try! HistogramRenderer(
             gpuHandler: gpuHandler,
             binsCount: HistogramViewModel.binsCount,
             layerColors: [RGBAColor(1, 0, 0, 0.7),
@@ -63,14 +68,14 @@ class HistogramViewModel {
         
         let texture = HistogramTexture(gpuHandler: gpuHandler, cgImage: cgImage)
         
-        self.histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
-            self.histogramRenderer.draw(histogramBuffer: histogramBuffer)
+        histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
+            histogramRenderer.draw(histogramBuffer: histogramBuffer)
         }
     }
 }
 ```
 
-Now simply show the histogram renderer's view wrapping it into a `UIViewRepresentable` or `NSViewRepresentable`:
+Now simply show the histogram renderer's view wrapping it into a SwiftUI's `UIViewRepresentable` or `NSViewRepresentable`:
 ```swift
 import SwiftUI
 
@@ -104,46 +109,50 @@ and `histogramRenderer.draw` releases the `HistogramBuffer` object once it's ren
 import Combine
 import AVFoundation
 
-// Init shared GPU handler, generator and renderer the same way as it's defined in the previous listing
-let gpuHandler: GPUHandler
-let histogramGenerator: HistogramGenerator
-let histogramRenderer: HistogramRenderer
+class HistogramViewModel {
 
-// Assuming there's some CVImageBuffer publisher defined
-let videoFramePublisher: AnyPublisher<CVImageBuffer, Never>
+    // Assuming there's some CVImageBuffer publisher defined
+    let videoFramePublisher: AnyPublisher<CVImageBuffer, Never>
+    var videoFramePublisherCancellable: AnyCancellable?
 
-// Texture allocation is a slow process.
-// Make a pool of pre-allocated textures to use for high-FPS rendering.
-var texturePool: SharedResourcePool<HistogramTexture>?
+    // Texture allocation is a slow process.
+    // Make a pool of pre-allocated textures to use for high-FPS rendering.
+    var texturePool: SharedResourcePool<HistogramTexture>?
 
-// Process frames
-videoFramePublisher.sink { frame in
-    // Obtain frame's height and width in pixels
-    let width = CVPixelBufferGetWidth(imageBuffer)
-    let height = CVPixelBufferGetHeight(imageBuffer)
-    
-    // Make sure that texture pool is set up with the same width and height as a receiving frame.
-    // In most cases streaming frame size is constant.
-    if (texturePool == nil) {
-        texturePool = HistogramTexture.makePool(gpuHandler: gpuHandler,
-                                                textureSize: MTLSizeMake(width, height, 1),
-                                                poolSize: FastHistogramViewModel.texturesPoolSize)
-    }
-    
-    // Get free texture from the pool.
-    // This method blocks until a next texture is available.
-    let texture = texturePool!.nextResource
-    
-    texture.fillTextureWithImageBufferData(imageBuffer: frame)
-    
-    // Process texture, generate RGBL histogram
-    histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
-        // By this moment, texture is already released by .process method.
-        // Render RGBL histogram. After it's done, histogramBuffer is also auto-released.
-        histogramRenderer.draw(histogramBuffer: histogramBuffer)
+    init() {
+        // Init shared GPU handler, generator and renderer the same way as it's defined in the previous listing
+        // ...
+
+        // Process frames
+        videoFramePublisherCancellable = videoFramePublisher.sink { frame in
+            // Obtain frame's height and width in pixels
+            let width = CVPixelBufferGetWidth(imageBuffer)
+            let height = CVPixelBufferGetHeight(imageBuffer)
+            
+            // Make sure that texture pool is set up with the same width and height as a receiving frame.
+            // In most cases streaming frame size is constant.
+            if (texturePool == nil) {
+                texturePool = HistogramTexture.makePool(gpuHandler: gpuHandler,
+                                                        textureSize: MTLSizeMake(width, height, 1))
+            }
+            
+            // Get free texture from the pool.
+            // This method blocks until a next texture is available.
+            let texture = texturePool!.nextResource
+            
+            texture.fillTextureWithImageBufferData(imageBuffer: frame)
+            
+            // Process texture, generate RGBL histogram
+            histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
+                // By this moment, texture is already released by .process method.
+                // Render RGBL histogram. After it's done, histogramBuffer is also auto-released.
+                histogramRenderer.draw(histogramBuffer: histogramBuffer)
+            }
+        }
     }
 }
 
+```
 
 
 
