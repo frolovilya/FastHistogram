@@ -15,7 +15,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     
     private let gpuHandler: GPUHandler
     private let renderPipelineState: MTLRenderPipelineState
-    private var histogramView: HistogramView!
+    private let renderTarget: HistogramRendererTarget
 
     private var histogramBuffer: HistogramBuffer?
     private var enabledRGBLLayers: [Bool] = [true, true, true, true]
@@ -26,44 +26,29 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     
     private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
     
-    #if os(OSX)
-    /// Renderer's underlying view
-    public var view: some NSView {
-        histogramView.view
-    }
-    #else
-    /// Renderer's underlying view
-    public var view: some UIView {
-        histogramView.view
-    }
-    #endif
-    
     /**
      Initiate new histogram renderer instance.
      
      - Parameter gpuHandler: `GPUHandler` instance.
+     - Parameter renderTarget: render target to draw histogram into.
      - Parameter binsCount: number of histogram bins to draw.
      - Parameter layerColors: vector of four RGB colors to represent RGBL layers.
-     - Parameter backgroundColor: histogram's background color.
      */
     public init(gpuHandler: GPUHandler,
+                renderTarget: HistogramRendererTarget,
                 binsCount: Int,
-                layerColors: [RGBAColor],
-                backgroundColor: RGBAColor) throws {
+                layerColors: [RGBAColor]) throws {
         self.gpuHandler = gpuHandler
         self.binsCount = binsCount
         self.layerColors = layerColors
+        self.renderTarget = renderTarget
         
         // init render pipeline states
         renderPipelineState = try HistogramRenderer.initRenderPipelineState(device: gpuHandler.device,
                                                                             library: gpuHandler.library)
-        
         super.init()
-
-        // setup view
-        histogramView = HistogramView(device: gpuHandler.device,
-                                      delegate: self,
-                                      backgroundColor: backgroundColor)
+        
+        self.renderTarget.metalView?.delegate = self
     }
     
     private static func initRenderPipelineState(device: MTLDevice, library: MTLLibrary?) throws -> MTLRenderPipelineState {
@@ -100,16 +85,21 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         renderingQueue.async {
             self.enabledRGBLLayers = [showRed, showGreen, showBlue, showLuminance]
             self.histogramBuffer = histogramBuffer
-            self.histogramView.view.draw()
+            
+            if let metalView = self.renderTarget.metalView {
+                metalView.draw()
+            } else {
+                self.renderingPass(view: nil)
+            }
         }
     }
     
-    func renderingPass(view: MTKView) -> Void {
+    func renderingPass(view: MTKView?) -> Void {
         guard let histogramBuffer = self.histogramBuffer else { return }
         
         // setup rendering encoder
         guard let commandBuffer = gpuHandler.commandQueue.makeCommandBuffer(), // stores GPU commands
-              let renderPassDescription = view.currentRenderPassDescriptor, // render destinations data
+              let renderPassDescription = renderTarget.renderPassDescriptor, // render destinations data
               let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescription)
         else {
             print("Unable to set up render command encoder")
@@ -154,19 +144,19 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         commandEncoder.endEncoding()
 
         // present view
-        if let drawable = view.currentDrawable {
+        if let drawable = view?.currentDrawable {
             commandBuffer.present(drawable)
         }
         
         // commit commands to GPU
         commandBuffer.commit()
     }
-    
+
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
     }
 
     public func draw(in view: MTKView) {
         renderingPass(view: view)
     }
-
+    
 }

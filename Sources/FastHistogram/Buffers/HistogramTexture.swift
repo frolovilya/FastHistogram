@@ -4,23 +4,28 @@ import CShaderHeader
 /**
  Wraps image data as Metal texture to use as an input for histogram generation.
  */
-public final class HistogramTexture: PoolResource {
+public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     
     let metalTexture: MTLTexture
     
     /**
      Init new texture instance with given `size`.
      
-     In most cases it's preferable to use a texture pool by calling `makePool` static method rather than creating indiviudal texture instances.
+     Use texture pool by calling `makePool` static method, if you need to allocate multiple textures for high-FPS rendering.
      
      - Parameter gpuHandler: `GPUHandler` instance.
      - Parameter size: texture size to generate.
+     - Parameter isRenderTarget: whether to use the texture as a render target for the HistogramRenderer.
      */
-    public init(gpuHandler: GPUHandler, size: MTLSize) {
+    public init(gpuHandler: GPUHandler, size: MTLSize, isRenderTarget: Bool = false) {
         let textureDescriptor = MTLTextureDescriptor()
+        textureDescriptor.textureType = .type2D
         textureDescriptor.pixelFormat = .bgra8Unorm
         textureDescriptor.width = size.width
         textureDescriptor.height = size.height
+        if isRenderTarget {
+            textureDescriptor.usage = .renderTarget
+        }
         
         metalTexture = gpuHandler.device.makeTexture(descriptor: textureDescriptor)!
     }
@@ -62,6 +67,21 @@ public final class HistogramTexture: PoolResource {
     /// Release this texture instance back to the shared pool
     public func release() -> Void {
         pool?.release(resource: self)
+    }
+    
+    /// Render pass descriptor to use this texture as a render target
+    public var renderPassDescriptor: MTLRenderPassDescriptor? {
+        let descriptor = MTLRenderPassDescriptor()
+        descriptor.colorAttachments[0].texture = metalTexture
+        descriptor.colorAttachments[0].loadAction = .clear
+        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(1, 1, 1, 1)
+        descriptor.colorAttachments[0].storeAction = .store
+        return descriptor
+    }
+    
+    /// Metal's View, always nil for a texture
+    public var metalView: MTKView? {
+        return nil
     }
     
     /**

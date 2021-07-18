@@ -2,6 +2,13 @@
 
 GPU-based image RGBL histogram calculation and rendering. Uses Metal to calculate and draw high-FPS histograms.
 
+* [What's RGBL Histogram](#whatsHistogram)
+* [Installation](#installation)
+* [Usage](#usage)
+  * [Wrapping Into A Simple ViewModel](#wrapIntoViewModel)
+  * [Continuous High-FPS Rendering](#highFPS)
+  
+<a name="whatsHistogram"/>
 
 ## What's RGBL Histogram?
 RGBL histogram shows Red, Green, Blue and Luminocity channels bar chart for an image.
@@ -12,6 +19,7 @@ _FastHistogram_ supports both linear and gamma-encoded histogram generation and 
     
 ![Histogram](https://user-images.githubusercontent.com/271293/125408301-73735c00-e3c3-11eb-88ed-bf7f97f15941.png)
 
+<a name="installation"/>
 
 ## Installation
 
@@ -22,6 +30,7 @@ Use Xcode's built-in Swift Package Manager:
 * Paste package repository https://github.com/frolovilya/FastHistogram.git and press return
 * Import module to any file using `import FastHistogram`
 
+<a name="usage"/>
 
 ## Usage
 
@@ -30,6 +39,7 @@ _FastHistogram_ provides two components for generation and rendering which can b
 `HistogramRenderer` takes `HistogramBuffer` as an argument and draws RGBL bins.
 Both generation and rendering phases are performed on the GPU.
 
+<a name="wrapIntoViewModel"/>
 
 ### Wrapping Into A Simple ViewModel
 
@@ -42,36 +52,46 @@ class HistogramViewModel {
     // Specify a count of histogram bins to generate and render
     static let binsCount: Int = 256
     
+    private let gpuHandler: GPUHandler
     private let histogramGenerator: HistogramGenerator
     private let histogramRenderer: HistogramRenderer
+    private let histogramView: HistogramView
     
     var view: some View {
-        histogramRenderer.view
+        histogramView.view
     }
     
     init() {
         // Init shared GPU handler
-        let gpuHandler = try! GPUHandler()
+        gpuHandler = try! GPUHandler()
         
+        // Init HistogramGenerator
         histogramGenerator = try! HistogramGenerator(gpuHandler: gpuHandler,
                                                      binsCount: HistogramViewModel.binsCount)
+                                                     
+        histogramView = HistogramView(gpuHandler: gpuHandler,
+                                      backgroundColor: RGBAColor(0, 0, 0, 1))
         
+        // Init HistogramRenderer. Specify layer and background colors using RGBAColor(Red, Green, Blue, Alpha).
         histogramRenderer = try! HistogramRenderer(
             gpuHandler: gpuHandler,
+            renderTarget: histogramView,
             binsCount: HistogramViewModel.binsCount,
             layerColors: [RGBAColor(1, 0, 0, 0.7),
                           RGBAColor(0, 1, 0, 0.7),
                           RGBAColor(0, 0, 1, 0.7),
-                          RGBAColor(1, 1, 1, 0.7)],
-            backgroundColor: RGBAColor(0, 0, 0, 1))
-            
-        let image: PlatformImage = #imageLiteral(resourceName: "IMG_9695")
+                          RGBAColor(1, 1, 1, 0.7)])
+    }
+    
+    func generateAndRender() {
+        // Get some image to generate histogram for
+        let image: UIImage = #imageLiteral(resourceName: "SomeImage")
         guard let cgImage = image.cgImage else { return }
         
         let texture = HistogramTexture(gpuHandler: gpuHandler, cgImage: cgImage)
         
         histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
-            histogramRenderer.draw(histogramBuffer: histogramBuffer)
+            self.histogramRenderer.draw(histogramBuffer: histogramBuffer)
         }
     }
 }
@@ -91,11 +111,16 @@ struct HistogramApp: App {
             GeometryReader { g in
                 ViewWrapper(view: histogramViewModel.view)
                     .frame(width: g.size.width, height: g.size.height)
+                    .onAppear {
+                        histogramViewModel.generateAndRender()
+                    }
             }
         }
     }
 }
 ```
+
+<a name="highFPS"/>
 
 ### Continuous High-FPS Rendering
  
@@ -155,7 +180,3 @@ class HistogramViewModel {
 }
 
 ```
-
-
-
-
