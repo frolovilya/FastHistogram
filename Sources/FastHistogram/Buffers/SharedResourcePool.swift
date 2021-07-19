@@ -22,7 +22,7 @@ public class SharedResourcePool<T> where T: PoolResource {
      
      - Parameter resources: array or objects this pool represents.
      */
-    public init(resources: [T]) {
+    init(resources: [T]) {
         self.semaphore = DispatchSemaphore(value: resources.count)
 
         self.resources = resources
@@ -38,7 +38,7 @@ public class SharedResourcePool<T> where T: PoolResource {
      
      - Returns available object instance.
      */
-    public var nextResource: T {
+    var nextResource: T {
         semaphore.wait()
         
         return syncQueue.sync {

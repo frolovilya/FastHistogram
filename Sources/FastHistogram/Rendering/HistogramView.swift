@@ -16,7 +16,7 @@ public class HistogramView: HistogramRendererTarget {
      - Parameter backgroundColor: view's background RGBA color.
      */
     public init(gpuHandler: GPUHandler,
-                backgroundColor: RGBAColor) {
+                backgroundColor: RGBAFloatColor) {
         metalView = MTKView(frame: CGRect(x: 0, y: 0, width: 1, height: 1),
                             device: gpuHandler.device)
         

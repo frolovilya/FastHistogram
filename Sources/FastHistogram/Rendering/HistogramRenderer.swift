@@ -20,7 +20,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private var histogramBuffer: HistogramBuffer?
     private var enabledRGBLLayers: [Bool] = [true, true, true, true]
     private var binsCount: Int
-    private var layerColors: [RGBAColor]
+    private var layerColors: [RGBAFloatColor]
     
     private var updatePublisherCancellable: AnyCancellable?
     
@@ -37,10 +37,13 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     public init(gpuHandler: GPUHandler,
                 renderTarget: HistogramRendererTarget,
                 binsCount: Int,
-                layerColors: [RGBAColor]) throws {
+                redLayerColor: RGBAFloatColor = RGBAFloatColor(1, 0, 0, 1),
+                greenLayerColor: RGBAFloatColor = RGBAFloatColor(0, 1, 0, 1),
+                blueLayerColor: RGBAFloatColor = RGBAFloatColor(0, 0, 1, 1),
+                luminanceLayerColor: RGBAFloatColor = RGBAFloatColor(1, 1, 1, 1)) throws {
         self.gpuHandler = gpuHandler
         self.binsCount = binsCount
-        self.layerColors = layerColors
+        self.layerColors = [redLayerColor, greenLayerColor, blueLayerColor, luminanceLayerColor]
         self.renderTarget = renderTarget
         
         // init render pipeline states
@@ -122,7 +125,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
                                       index: Int(HistogramVertexInputIndexBinsCount.rawValue))
         
         commandEncoder.setVertexBytes(&layerColors,
-                                      length: MemoryLayout<RGBAColor>.stride * layerColors.count,
+                                      length: MemoryLayout<RGBAFloatColor>.stride * layerColors.count,
                                       index: Int(HistogramVertexInputIndexColors.rawValue))
         
         commandEncoder.setVertexBytes(&enabledRGBLLayers,
@@ -138,6 +141,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
         
         commandBuffer.addCompletedHandler { _ in
             histogramBuffer.release()
+            self.renderTarget.didRender()
         }
         
         // finish commands encoding

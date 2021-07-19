@@ -1,5 +1,6 @@
 import MetalKit
 import CShaderHeader
+import Combine
 
 /**
  Wraps image data as Metal texture to use as an input for histogram generation.
@@ -74,14 +75,18 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = metalTexture
         descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(1, 1, 1, 1)
+        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].storeAction = .store
         return descriptor
     }
     
-    /// Metal's View, always nil for a texture
-    public var metalView: MTKView? {
-        return nil
+    private lazy var didRenderSubject = PassthroughSubject<Void, Never>()
+    /// Publishes value any time this texture is rendered
+    public var didRenderPublisher: AnyPublisher<Void, Never> {
+        didRenderSubject.eraseToAnyPublisher()
+    }
+    public func didRender() {
+        didRenderSubject.send()
     }
     
     /**
@@ -98,7 +103,7 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
         metalTexture.replace(region: region,
                         mipmapLevel: 0,
                         withBytes: data,
-                        bytesPerRow: bytesPerRow ?? (RGBL_4 * metalTexture.width))
+                        bytesPerRow: bytesPerRow ?? (RGBA_4 * metalTexture.width))
     }
     
     /**
@@ -109,7 +114,7 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
      - Parameter pixelData: array of pixel colors to fill texture with.
      */
     public func fillTextureWithBGRAPixelData(pixelData: [UInt8]) -> Void {
-        let pointer = UnsafeMutablePointer<UInt8>.allocate(capacity: RGBL_4 * metalTexture.width * metalTexture.height)
+        let pointer = UnsafeMutablePointer<UInt8>.allocate(capacity: RGBA_4 * metalTexture.width * metalTexture.height)
         pointer.initialize(from: pixelData, count: pixelData.count)
         fillTexture(data: pointer)
     }
@@ -151,6 +156,63 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
         
         fillTexture(data: buffer,
                     bytesPerRow: CVPixelBufferGetBytesPerRow(imageBuffer))
+    }
+    
+    /**
+     Allocates memory and copies texture contents into it.
+     
+     Do not forget to `.deallocate()` when finished working with the data.
+     
+     - Returns: Pointer to the first (0, 0) pixels blue color
+     */
+    func getData() -> UnsafeMutablePointer<UInt8> {
+        let width = metalTexture.width
+        let height = metalTexture.height
+        let bytesPerRow = width * RGBA_4 // RGBA, each 8 bits, 4 bytes in total
+
+        let data = UnsafeMutableRawPointer.allocate(byteCount: bytesPerRow * height,
+                                                    alignment: RGBA_4)
+
+        let region = MTLRegionMake2D(0, 0, width, height)
+        metalTexture.getBytes(data,
+                              bytesPerRow: bytesPerRow,
+                              from: region,
+                              mipmapLevel: 0)
+        
+        return data.assumingMemoryBound(to: UInt8.self)
+    }
+    
+    /**
+     Get pixel RGBA color at the specified (x, y) location.
+     
+     - Parameter x: pixel's coordinate on the horizontal axis
+     - Parameter y: pixel's coordinate on the vertical axis
+     
+     - Returns: RGBA color as a vector of four 8-bit integers.
+     */
+    public func getPixelColor(x: Int, y: Int) -> RGBAIntColor {
+        let data = getData()
+        defer {
+            data.deallocate()
+        }
+        
+        let pointer = data.advanced(by: (x + y * metalTexture.width) * RGBA_4)
+        
+        // texture has .bgra8Unorm format
+        let blue = pointer.pointee
+        let green = pointer.advanced(by: 1).pointee
+        let red = pointer.advanced(by: 2).pointee
+        let alpha = pointer.advanced(by: 3).pointee
+        
+        return (red, green, blue, alpha)
+    }
+    
+    public func dumpTextureContents() -> Void {
+        for h in 0..<metalTexture.height {
+            for w in 0..<metalTexture.width {
+                print((w, h), getPixelColor(x: w, y: h))
+            }
+        }
     }
     
 }
