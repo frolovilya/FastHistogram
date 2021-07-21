@@ -5,7 +5,7 @@ GPU-based image RGBL histogram calculation and rendering. Uses Metal to calculat
 * [What's RGBL Histogram](#whatsHistogram)
 * [Installation](#installation)
 * [Usage](#usage)
-  * [Wrapping Into A Simple ViewModel](#wrapIntoViewModel)
+  * [Wrapping Into a ViewModel](#wrapIntoViewModel)
   * [Continuous High-FPS Rendering](#highFPS)
   
 <a name="whatsHistogram"/>
@@ -41,7 +41,7 @@ Both generation and rendering phases are performed on the GPU.
 
 <a name="wrapIntoViewModel"/>
 
-### Wrapping Into A Simple ViewModel
+### Wrapping Into a ViewModel
 
 Here's how you could wrap everything into a `ViewModel` to generate image's histogram and render it into a SwithUI `View`.
 
@@ -72,7 +72,8 @@ class HistogramViewModel {
         histogramView = HistogramView(gpuHandler: gpuHandler,
                                       backgroundColor: RGBAColor(0, 0, 0, 1))
         
-        // Init HistogramRenderer. Specify layer and background colors using RGBAColor(Red, Green, Blue, Alpha).
+        // Init HistogramRenderer. 
+        // Specify layer and background colors using RGBAColor(Red, Green, Blue, Alpha).
         histogramRenderer = try! HistogramRenderer(
             gpuHandler: gpuHandler,
             renderTarget: histogramView,

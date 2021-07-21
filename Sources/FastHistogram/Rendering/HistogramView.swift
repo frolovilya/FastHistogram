@@ -16,7 +16,7 @@ public class HistogramView: HistogramRendererTarget {
      - Parameter backgroundColor: view's background RGBA color.
      */
     public init(gpuHandler: GPUHandler,
-                backgroundColor: RGBAFloatColor) {
+                backgroundColor: RGBAColor) {
         metalView = MTKView(frame: CGRect(x: 0, y: 0, width: 1, height: 1),
                             device: gpuHandler.device)
         
@@ -26,10 +26,7 @@ public class HistogramView: HistogramRendererTarget {
         #if os(iOS)
         metalView!.isOpaque = false
         #endif
-        metalView!.clearColor = MTLClearColor(red: Double(backgroundColor[0]),
-                                              green: Double(backgroundColor[1]),
-                                              blue: Double(backgroundColor[2]),
-                                              alpha: Double(backgroundColor[3]))
+        metalView!.clearColor = backgroundColor.mtlClearColor
     }
     
     #if os(OSX)

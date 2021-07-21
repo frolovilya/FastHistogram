@@ -15,15 +15,19 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
      Use texture pool by calling `makePool` static method, if you need to allocate multiple textures for high-FPS rendering.
      
      - Parameter gpuHandler: `GPUHandler` instance.
-     - Parameter size: texture size to generate.
+     - Parameter width: width of the texture in pixels.
+     - Parameter height: height of the texture in pixels.
      - Parameter isRenderTarget: whether to use the texture as a render target for the HistogramRenderer.
      */
-    public init(gpuHandler: GPUHandler, size: MTLSize, isRenderTarget: Bool = false) {
+    public init(gpuHandler: GPUHandler,
+                width: Int,
+                height: Int,
+                isRenderTarget: Bool = false) {
         let textureDescriptor = MTLTextureDescriptor()
         textureDescriptor.textureType = .type2D
         textureDescriptor.pixelFormat = .bgra8Unorm
-        textureDescriptor.width = size.width
-        textureDescriptor.height = size.height
+        textureDescriptor.width = width
+        textureDescriptor.height = height
         if isRenderTarget {
             textureDescriptor.usage = .renderTarget
         }
@@ -45,16 +49,20 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     /**
      Make a pool of shared texture objects to re-use between frames for histogram generation.
      
+     All textures in the pool are of a fixed size. If input data size changes, new pool must be created.
+     
      - Parameter gpuHandler: `GPUHandler` instance.
-     - Parameter textureSize: All textures in the pool are of a fixed size. If input data size changes, new pool must be created.
+     - Parameter width: width of the texture in pixels.
+     - Parameter height: height of the texture in pixels.
      - Parameter poolSize: number of shared texture objects in the pool.
      */
     public static func makePool(gpuHandler: GPUHandler,
-                                textureSize: MTLSize,
+                                width: Int,
+                                height: Int,
                                 poolSize: Int = 3) -> SharedResourcePool<HistogramTexture> {
         var textures: [HistogramTexture] = []
         for _ in 0..<poolSize {
-            textures.append(HistogramTexture(gpuHandler: gpuHandler, size: textureSize))
+            textures.append(HistogramTexture(gpuHandler: gpuHandler, width: width, height: height))
         }
         return SharedResourcePool(resources: textures)
     }
@@ -75,7 +83,7 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = metalTexture
         descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        descriptor.colorAttachments[0].clearColor = RGBAColor.black.mtlClearColor
         descriptor.colorAttachments[0].storeAction = .store
         return descriptor
     }
@@ -190,7 +198,7 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
      
      - Returns: RGBA color as a vector of four 8-bit integers.
      */
-    public func getPixelColor(x: Int, y: Int) -> RGBAIntColor {
+    public func getPixelColor(x: Int, y: Int) -> RGBAColor {
         let data = getData()
         defer {
             data.deallocate()
@@ -204,10 +212,10 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
         let red = pointer.advanced(by: 2).pointee
         let alpha = pointer.advanced(by: 3).pointee
         
-        return (red, green, blue, alpha)
+        return RGBAColor(red, green, blue, alpha)
     }
     
-    public func dumpTextureContents() -> Void {
+    func dumpTextureContents() -> Void {
         for h in 0..<metalTexture.height {
             for w in 0..<metalTexture.width {
                 print((w, h), getPixelColor(x: w, y: h))

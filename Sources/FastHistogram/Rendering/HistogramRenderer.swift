@@ -19,8 +19,7 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
 
     private var histogramBuffer: HistogramBuffer?
     private var enabledRGBLLayers: [Bool] = [true, true, true, true]
-    private var binsCount: Int
-    private var layerColors: [RGBAFloatColor]
+    private var layerColors: [simd_float4]
     
     private var updatePublisherCancellable: AnyCancellable?
     
@@ -31,19 +30,16 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
      
      - Parameter gpuHandler: `GPUHandler` instance.
      - Parameter renderTarget: render target to draw histogram into.
-     - Parameter binsCount: number of histogram bins to draw.
      - Parameter layerColors: vector of four RGB colors to represent RGBL layers.
      */
     public init(gpuHandler: GPUHandler,
                 renderTarget: HistogramRendererTarget,
-                binsCount: Int,
-                redLayerColor: RGBAFloatColor = RGBAFloatColor(1, 0, 0, 1),
-                greenLayerColor: RGBAFloatColor = RGBAFloatColor(0, 1, 0, 1),
-                blueLayerColor: RGBAFloatColor = RGBAFloatColor(0, 0, 1, 1),
-                luminanceLayerColor: RGBAFloatColor = RGBAFloatColor(1, 1, 1, 1)) throws {
+                redLayerColor: RGBAColor = RGBAColor.red,
+                greenLayerColor: RGBAColor = RGBAColor.green,
+                blueLayerColor: RGBAColor = RGBAColor.blue,
+                luminanceLayerColor: RGBAColor = RGBAColor.white) throws {
         self.gpuHandler = gpuHandler
-        self.binsCount = binsCount
-        self.layerColors = [redLayerColor, greenLayerColor, blueLayerColor, luminanceLayerColor]
+        self.layerColors = [redLayerColor.simd, greenLayerColor.simd, blueLayerColor.simd, luminanceLayerColor.simd]
         self.renderTarget = renderTarget
         
         // init render pipeline states
@@ -120,12 +116,13 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
                                        offset: 0,
                                        index: Int(HistogramVertexInputIndexHistogramBuffer.rawValue))
         
+        var binsCount = histogramBuffer.binsCount
         commandEncoder.setVertexBytes(&binsCount,
                                       length: MemoryLayout<simd_uint1>.stride,
                                       index: Int(HistogramVertexInputIndexBinsCount.rawValue))
         
         commandEncoder.setVertexBytes(&layerColors,
-                                      length: MemoryLayout<RGBAFloatColor>.stride * layerColors.count,
+                                      length: MemoryLayout<simd_float4>.stride * layerColors.count,
                                       index: Int(HistogramVertexInputIndexColors.rawValue))
         
         commandEncoder.setVertexBytes(&enabledRGBLLayers,
