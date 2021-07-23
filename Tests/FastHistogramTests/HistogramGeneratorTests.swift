@@ -144,9 +144,9 @@ final class HistogramGeneratorTests: XCTestCase {
         let texture = texturePool.nextResource
         texture.fillTextureWithBGRAPixelData(pixelData: pixelData)
         
-        let redBin = TestUtils.binIndex(0.2126, binsCount: HistogramGeneratorTests.binsCount)
-        let greenBin = TestUtils.binIndex(0.7152, binsCount: HistogramGeneratorTests.binsCount)
-        let blueBin = TestUtils.binIndex(0.0722, binsCount: HistogramGeneratorTests.binsCount)
+        let redBin = TestUtils.binIndex(TestUtils.redPerception, binsCount: HistogramGeneratorTests.binsCount)
+        let greenBin = TestUtils.binIndex(TestUtils.greenPerception, binsCount: HistogramGeneratorTests.binsCount)
+        let blueBin = TestUtils.binIndex(TestUtils.bluePerception, binsCount: HistogramGeneratorTests.binsCount)
         
         // calculate gamma encoded histogram
         histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
@@ -179,9 +179,9 @@ final class HistogramGeneratorTests: XCTestCase {
         let texture = texturePool.nextResource
         texture.fillTextureWithBGRAPixelData(pixelData: pixelData)
 
-        let luminance = (0.2126 * 60/255.0
-                            + 0.7152 * 150/255.0
-                            + 0.0722 * 157/255.0)
+        let luminance = (TestUtils.redPerception * 60/255.0
+                            + TestUtils.greenPerception * 150/255.0
+                            + TestUtils.bluePerception * 157/255.0)
         let luminanceBin = TestUtils.binIndex(luminance, binsCount: HistogramGeneratorTests.binsCount)
         
         // calculate gamma encoded histogram
@@ -218,9 +218,9 @@ final class HistogramGeneratorTests: XCTestCase {
         let greenBin = TestUtils.binIndex(TestUtils.linearize(150/255.0), binsCount: HistogramGeneratorTests.binsCount)
         let blueBin = TestUtils.binIndex(TestUtils.linearize(157/255.0), binsCount: HistogramGeneratorTests.binsCount)
         
-        let luminance = (0.2126 * TestUtils.linearize(60/255.0)
-                            + 0.7152 * TestUtils.linearize(150/255.0)
-                            + 0.0722 * TestUtils.linearize(157/255.0))
+        let luminance = (TestUtils.redPerception * TestUtils.linearize(60/255.0)
+                            + TestUtils.greenPerception * TestUtils.linearize(150/255.0)
+                            + TestUtils.bluePerception * TestUtils.linearize(157/255.0))
         let luminanceBin = TestUtils.binIndex(luminance, binsCount: HistogramGeneratorTests.binsCount)
         
         // calculate gamma encoded histogram

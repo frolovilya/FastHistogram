@@ -70,18 +70,16 @@ class HistogramViewModel {
                                                      binsCount: HistogramViewModel.binsCount)
                                                      
         histogramView = HistogramView(gpuHandler: gpuHandler,
-                                      backgroundColor: RGBAColor(0, 0, 0, 1))
+                                      backgroundColor: RGBAColor.black)
         
-        // Init HistogramRenderer. 
-        // Specify layer and background colors using RGBAColor(Red, Green, Blue, Alpha).
+        // Init HistogramRenderer
         histogramRenderer = try! HistogramRenderer(
             gpuHandler: gpuHandler,
             renderTarget: histogramView,
-            binsCount: HistogramViewModel.binsCount,
-            layerColors: [RGBAColor(1, 0, 0, 0.7),
-                          RGBAColor(0, 1, 0, 0.7),
-                          RGBAColor(0, 0, 1, 0.7),
-                          RGBAColor(1, 1, 1, 0.7)])
+            redLayerColor: RGBAColor.red.opacity(0.7),
+            greenLayerColor: RGBAColor.green.opacity(0.7),
+            blueLayerColor: RGBAColor.blue.opacity(0.7),
+            luminanceLayerColor: RGBAColor.white.opacity(0.7))
     }
     
     func generateAndRender() {
