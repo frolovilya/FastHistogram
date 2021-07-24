@@ -363,6 +363,102 @@ final class HistogramRendererTests: XCTestCase {
             layersOpacity: 0.7
         )
     }
+    
+    func testMixedRgb_gammaEncoded_100bins_100x2texture() {
+        let redBin = TestUtils.binIndex(60/255.0, binsCount: 100)
+        let greenBin = TestUtils.binIndex(150/255.0, binsCount: 100)
+        let blueBin = TestUtils.binIndex(157/255.0, binsCount: 100)
+
+        let luminance = (TestUtils.redPerception * 60/255.0
+                            + TestUtils.greenPerception * 150/255.0
+                            + TestUtils.bluePerception * 157/255.0)
+        let luminanceBin = TestUtils.binIndex(luminance, binsCount: 100)
+        
+        checkOutput(
+            inputPixels: [ // BGRA
+                157, 150, 60, 255,
+                157, 150, 60, 255,
+                157, 150, 60, 255,
+                157, 150, 60, 255
+            ],
+            outputPixels: [
+                P(redBin, 0): RGBAColor.red,
+                P(redBin, 1): RGBAColor.red,
+                
+                P(greenBin, 0): RGBAColor.green,
+                P(greenBin, 1): RGBAColor.green,
+
+                P(blueBin, 0): RGBAColor.blue,
+                P(blueBin, 1): RGBAColor.blue,
+                
+                P(luminanceBin, 0): RGBAColor.white,
+                P(luminanceBin, 1): RGBAColor.white
+            ],
+            binsCount: 100,
+            width: 100,
+            height: 2
+        )
+    }
+    
+    func testMixedRgb_gammaEncoded_100bins_50x2texture() {
+        let redBin = Int(Double(TestUtils.binIndex(60/255.0, binsCount: 100)) * (50 / 100.0)) // 11
+        // let greenBin = Int(Double(TestUtils.binIndex(150/255.0, binsCount: 100)) * (50 / 100.0)) // 29
+        let blueBin = Int(Double(TestUtils.binIndex(157/255.0, binsCount: 100)) * (50 / 100.0)) // 30
+
+        let luminance = (TestUtils.redPerception * 60/255.0
+                            + TestUtils.greenPerception * 150/255.0
+                            + TestUtils.bluePerception * 157/255.0)
+        let luminanceBin = Int(Double(TestUtils.binIndex(luminance, binsCount: 100)) * (50 / 100.0)) // 25
+        
+        /*
+         barWidth    float    0.0078125
+
+         green 150:
+         position    float4    [ 0.171875, -1.0, 0.0, 1.0 ]
+         position    float4    [ 0.1796875, 1.0, 0.0, 1.0 ]
+ 
+         X coordinates for 50px width:
+         29,296875
+         29,4921875
+         
+         blue 157:
+         position    float4    [ 0.2265625, -1.0, 0.0, 1.0 ]
+         position    float4    [ 0.234375, 1.0, 0.0, 1.0 ]
+         
+         X coordinates for 50px width:
+         30,6640625
+         30,859375
+         */
+
+        // 23: (4, 0, 0, 0)
+        // 51: (0, 0, 0, 4)
+        // 58: (0, 4, 0, 0)
+        // 61: (0, 0, 4, 0)
+        checkOutput(
+            inputPixels: [ // BGRA
+                157, 150, 60, 255,
+                157, 150, 60, 255,
+                157, 150, 60, 255,
+                157, 150, 60, 255
+            ],
+            outputPixels: [
+                P(redBin, 0): RGBAColor.red,
+                P(redBin, 1): RGBAColor.red,
+                
+                // P(greenBin, 0): RGBAColor.green,
+                // P(greenBin, 1): RGBAColor.green,
+
+                P(blueBin, 0): RGBAColor.blue,
+                P(blueBin, 1): RGBAColor.blue,
+                
+                P(luminanceBin, 0): RGBAColor.white,
+                P(luminanceBin, 1): RGBAColor.white
+            ],
+            binsCount: 100,
+            width: 50,
+            height: 2
+        )
+    }
 
     static var allTests = [
         ("testWhite_10bins_10x4texture", testWhite_10bins_10x4texture),
@@ -374,6 +470,8 @@ final class HistogramRendererTests: XCTestCase {
         ("test18Gray_10bins_4x4texture", test18Gray_10bins_4x4texture),
         ("test18Gray_256bins_256x4texture", test18Gray_256bins_256x4texture),
         ("testPureRgb_256bins_256x3texture_noBlending", testPureRgb_256bins_256x3texture_noBlending),
-        ("testPureRgb_256bins_256x3texture_withBlending", testPureRgb_256bins_256x3texture_withBlending)
+        ("testPureRgb_256bins_256x3texture_withBlending", testPureRgb_256bins_256x3texture_withBlending),
+        ("testMixedRgb_gammaEncoded_100bins_100x2texture", testMixedRgb_gammaEncoded_100bins_100x2texture),
+        ("testMixedRgb_gammaEncoded_100bins_50x2texture", testMixedRgb_gammaEncoded_100bins_50x2texture)
     ]
 }
