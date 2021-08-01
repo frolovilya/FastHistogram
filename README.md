@@ -12,7 +12,7 @@ _GPU-based image RGBL histogram calculation and rendering._
 
 ## About
 
-_FastHistogram_ uses Metal framework to calculate and draw high-FPS histograms.
+_FastHistogram_ uses Metal framework to calculate and draw high-FPS histograms for both iOS and macOS.
 It provides two components for generation and rendering which can be used independently.
 
 RGBL histogram shows Red, Green, Blue and Luminocity channels bar chart for an image.
@@ -20,7 +20,7 @@ Bar height represents a count of pixels with a corresponding color or luminocity
     
 ![Histogram](https://user-images.githubusercontent.com/271293/125408301-73735c00-e3c3-11eb-88ed-bf7f97f15941.png)
 
-Pixel colors inside the sRGB color space are not linear, but with `gamma=2.4` coefficient applied.
+Pixel colors inside the sRGB color space are not linear, but with [Gamma](https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation_(sRGB_to_CIE_XYZ)) coefficient applied.
 _FastHistogram_ supports both linear and gamma-encoded histogram generation and rendering.
 
 <a name="installation"/>
@@ -93,7 +93,7 @@ class HistogramViewModel {
         // There're many other ways you can init or fill texture, see the class doc comments.
         let texture = HistogramTexture(gpuHandler: gpuHandler, cgImage: cgImage)
         
-        // Calculate histogram and draw it
+        // Calculate Gamma-encoded histogram and draw it
         histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
             self.histogramRenderer.draw(histogramBuffer: histogramBuffer)
         }
