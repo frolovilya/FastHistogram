@@ -26,11 +26,14 @@ public class HistogramRenderer: NSObject, MTKViewDelegate {
     private let renderingQueue = DispatchQueue(label: "HistogramRendererQueue")
     
     /**
-     Initiate new histogram renderer instance.
+     Initiate new `HistogramRenderer` instance.
      
      - Parameter gpuHandler: `GPUHandler` instance.
      - Parameter renderTarget: render target to draw histogram into.
-     - Parameter layerColors: vector of four RGB colors to represent RGBL layers.
+     - Parameter redLayerColor: RGBA color to use for Red layer.
+     - Parameter greenLayerColor: RGBA color to use for Green layer.
+     - Parameter blueLayerColor: RGBA color to use for Blue layer.
+     - Parameter luminanceLayerColor: RGBA color to use for Luminance layer.
      */
     public init(gpuHandler: GPUHandler,
                 renderTarget: HistogramRendererTarget,

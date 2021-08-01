@@ -1,7 +1,7 @@
 import Foundation
 
 /**
- An object that could be stored in a shared resource pool.
+ An object that can be stored in a shared resource pool.
  */
 public protocol PoolResource {
     var pool: SharedResourcePool<Self>? { get set }
@@ -20,7 +20,7 @@ public class SharedResourcePool<T> where T: PoolResource {
     /**
      Init pool with given objects to share.
      
-     - Parameter resources: array or objects this pool represents.
+     - Parameter resources: array or objects this pool holds.
      */
     init(resources: [T]) {
         self.semaphore = DispatchSemaphore(value: resources.count)
@@ -38,7 +38,7 @@ public class SharedResourcePool<T> where T: PoolResource {
      
      - Returns available object instance.
      */
-    var nextResource: T {
+    public var nextResource: T {
         semaphore.wait()
         
         return syncQueue.sync {
@@ -47,6 +47,7 @@ public class SharedResourcePool<T> where T: PoolResource {
         }
     }
     
+    /// Release object back to the pool.
     func release(resource: T) {
         syncQueue.sync {
             resources.append(resource)

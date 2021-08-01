@@ -2,6 +2,7 @@ import simd
 import MetalKit
 import Foundation
 
+/// Structure to hold and work with RGBA color data.
 public struct RGBAColor: Equatable, CustomStringConvertible {
     public let red, green, blue, alpha: UInt8
     

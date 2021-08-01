@@ -2,7 +2,7 @@ import MetalKit
 import CShaderHeader
 
 /**
- Buffer containing generated histogram data.
+ Buffer that holds generated histogram bins.
  Wraps `MTLBuffer` to ease access to RGBL data.
  */
 public final class HistogramBuffer: PoolResource {
@@ -10,11 +10,11 @@ public final class HistogramBuffer: PoolResource {
     /**
      Underlying metal buffer.
      
-     Memory layout is the following: [4 max bin values: four 32-bit uints] + [RGBL bins: four 32-bit uints] * binsCount
+     Memory layout is the following: [4 max bin values: four 32-bit uints] + [RGBL bins: four 32-bit uints] * binsCount.
      */
     let metalBuffer: MTLBuffer
     
-    /// Number of RGBL bins this buffer contains.
+    /// Number of RGBL bins in this buffer.
     public let binsCount: Int
     
     init(gpuHandler: GPUHandler, binsCount: Int) throws {
@@ -38,6 +38,7 @@ public final class HistogramBuffer: PoolResource {
         return SharedResourcePool(resources: histogramBuffers)
     }
     
+    /// Pool that owns this buffer instance, if any.
     public weak var pool: SharedResourcePool<HistogramBuffer>?
 
     /// Release this buffer instance back to the shared resource pool.
@@ -49,7 +50,7 @@ public final class HistogramBuffer: PoolResource {
         return MemoryLayout<RGBLBinCell>.stride * RGBL_4 * (binsCount + 1)
     }
     
-    /// Number of `RGBLBinCell`s inside this histogram buffer
+    /// Number of `RGBLBinCell`s inside this histogram buffer.
     var capacity: Int {
         return (binsCount + 1) * RGBL_4
     }
@@ -81,7 +82,8 @@ public final class HistogramBuffer: PoolResource {
     }
     
     /**
-     Max bin cell values this histogram contains.
+     Max bin cell values for each RGBL channel in this histogram.
+     
      Use this data for RGBL normalization.
      */
     public var maxBinValues: RGBLBin {

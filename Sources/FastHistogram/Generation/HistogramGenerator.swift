@@ -65,7 +65,8 @@ public class HistogramGenerator {
      - Parameter isLinear: If `false`, then Gamma-encoded histogram is generated (with gamma value 2.4).
                            When `true`, then linearized histogarm is generated.
      - Parameter onCompleted: Closure to be called when GPU finishes histogram generation.
-     - Parameter buffer: Histogram data. Note that `HistogramBuffer` returned must be released to the pool by calling `.release()` method after you've done with it's processing.
+     - Parameter buffer: Histogram data. Note that `HistogramBuffer` returned
+     must be released to the pool by calling `.release()` method after you've done with it's processing.
      */
     public func process(texture: HistogramTexture,
                         isLinear: Bool,

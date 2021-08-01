@@ -1,18 +1,22 @@
 # FastHistogram
 
-GPU-based image RGBL histogram calculation and rendering. Uses Metal to calculate and draw high-FPS histograms.
+_GPU-based image RGBL histogram calculation and rendering._
 
-* [What's RGBL Histogram](#whatsHistogram)
+* [About](#about)
 * [Installation](#installation)
 * [Usage](#usage)
   * [Wrapping Into a ViewModel](#wrapIntoViewModel)
   * [Continuous High-FPS Rendering](#highFPS)
   
-<a name="whatsHistogram"/>
+<a name="about"/>
 
-## What's RGBL Histogram?
+## About
+
+_FastHistogram_ uses Metal framework to calculate and draw high-FPS histograms.
+It provides two components for generation and rendering which can be used independently.
+
 RGBL histogram shows Red, Green, Blue and Luminocity channels bar chart for an image.
-Bar height represents a count of pixels on an image with a corresponding color or luminocity.
+Bar height represents a count of pixels with a corresponding color or luminocity.
 
 Pixel colors inside the sRGB color space are not linear, but with `gamma=2.4` coefficient applied.
 _FastHistogram_ supports both linear and gamma-encoded histogram generation and rendering.
@@ -34,9 +38,9 @@ Use Xcode's built-in Swift Package Manager:
 
 ## Usage
 
-_FastHistogram_ provides two components for generation and rendering which can be used independently.
-`HistogramGenerator` uses `HistogramTexture` filled with pixel data from an image and outputs `HistogramBuffer` with RGBL data.
-`HistogramRenderer` takes `HistogramBuffer` as an argument and draws RGBL bins.
+There're two main classes to work with histograms:
+* `HistogramGenerator` uses `HistogramTexture` filled with pixel data and outputs `HistogramBuffer` with RGBL data.
+* `HistogramRenderer` takes `HistogramBuffer` as an argument and draws RGBL bins either on-screen or to another `HistogramTexture`.
 Both generation and rendering phases are performed on the GPU.
 
 <a name="wrapIntoViewModel"/>
@@ -72,7 +76,7 @@ class HistogramViewModel {
         histogramView = HistogramView(gpuHandler: gpuHandler,
                                       backgroundColor: RGBAColor.black)
         
-        // Init HistogramRenderer
+        // Init HistogramRenderer, specify layer colors
         histogramRenderer = try! HistogramRenderer(
             gpuHandler: gpuHandler,
             renderTarget: histogramView,
@@ -157,9 +161,9 @@ class HistogramViewModel {
             
             // Make sure that texture pool is set up with the same width and height as a receiving frame.
             // In most cases streaming frame size is constant.
-            if (texturePool == nil) {
-                texturePool = HistogramTexture.makePool(gpuHandler: gpuHandler,
-                                                        textureSize: MTLSizeMake(width, height, 1))
+            if (self.texturePool == nil) {
+                self.texturePool = HistogramTexture.makePool(gpuHandler: gpuHandler,
+                                                             textureSize: MTLSizeMake(width, height, 1))
             }
             
             // Get free texture from the pool.
@@ -169,10 +173,10 @@ class HistogramViewModel {
             texture.fillTextureWithImageBufferData(imageBuffer: frame)
             
             // Process texture, generate RGBL histogram
-            histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
+            self.histogramGenerator.process(texture: texture, isLinear: false) { histogramBuffer in
                 // By this moment, texture is already released by .process method.
                 // Render RGBL histogram. After it's done, histogramBuffer is also auto-released.
-                histogramRenderer.draw(histogramBuffer: histogramBuffer)
+                self.histogramRenderer.draw(histogramBuffer: histogramBuffer)
             }
         }
     }

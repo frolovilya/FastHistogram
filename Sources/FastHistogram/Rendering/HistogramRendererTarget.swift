@@ -1,14 +1,14 @@
 import MetalKit
 
-/// Render target to be used for HistogramRenderer output
+/// Render target to be used for `HistogramRenderer` output.
 public protocol HistogramRendererTarget {
-    /// Render pass descriptor to render this target
+    /// Render pass descriptor to render this target.
     var renderPassDescriptor: MTLRenderPassDescriptor? { get }
     
-    /// Underlying Metal view, if any
+    /// Underlying Metal view, if any.
     var metalView: MTKView? { get }
     
-    /// Called when this target is rendered
+    /// Called when this target is rendered.
     func didRender() -> Void
 }
 

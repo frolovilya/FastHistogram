@@ -3,10 +3,11 @@ import CShaderHeader
 import Combine
 
 /**
- Wraps image data as Metal texture to use as an input for histogram generation.
+ Wraps image data as a Metal texture to use as an input for histogram generation.
  */
 public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     
+    /// Underlying Metal texture.
     let metalTexture: MTLTexture
     
     /**
@@ -36,7 +37,9 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     }
     
     /**
-     Init new texture instance for a given `CGImage`.
+     Init new texture instance copying `CGImage` data.
+     
+     Texture size will match image's dimensions.
      
      - Parameter gpuHandler: `GPUHandler` instance.
      - Parameter cgImage: `CGImage` to generate texture from.
@@ -47,7 +50,7 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     }
     
     /**
-     Make a pool of shared texture objects to re-use between frames for histogram generation.
+     Make a pool of shared `HistogramTexture` objects to re-use between frames for histogram generation.
      
      All textures in the pool are of a fixed size. If input data size changes, new pool must be created.
      
@@ -71,14 +74,20 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
         MTLSizeMake(metalTexture.width, metalTexture.height, metalTexture.depth)
     }
     
+    /// Pool that owns this texture instance, if any.
     public weak var pool: SharedResourcePool<HistogramTexture>?
 
-    /// Release this texture instance back to the shared pool
+    /// Release this texture instance back to the shared pool.
     public func release() -> Void {
         pool?.release(resource: self)
     }
     
-    /// Render pass descriptor to use this texture as a render target
+    /**
+     Render pass descriptor to use this texture as a render target.
+     
+     Init `HistogramRenderer` by providing texture as a `renderTarget`
+     to draw histogram inside texture instead of displaying it in a view.
+     */
     public var renderPassDescriptor: MTLRenderPassDescriptor? {
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = metalTexture
@@ -89,10 +98,11 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     }
     
     private lazy var didRenderSubject = PassthroughSubject<Void, Never>()
-    /// Publishes value any time this texture is rendered
+    /// Publishes value any time this texture is rendered.
     public var didRenderPublisher: AnyPublisher<Void, Never> {
         didRenderSubject.eraseToAnyPublisher()
     }
+    /// This method is being called when `HistogramRenderer` has finished drawing histogram into this texture.
     public func didRender() {
         didRenderSubject.send()
     }
@@ -101,7 +111,8 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
      Copy raw data into texture.
      
      - Parameter data: A pointer to the bytes in memory to copy.
-     - Parameter bytesPerRow: The stride, in bytes, between rows of source data. Optional, by default equals to texture width in pixels multiplied by 4.
+     - Parameter bytesPerRow: The stride, in bytes, between rows of source data.
+     Optional, by default equals to texture width in pixels multiplied by 4.
      */
     public func fillTexture(data: UnsafeRawPointer,
                             bytesPerRow: Int? = nil) -> Void {
@@ -117,7 +128,8 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     /**
      Fill texture with BGRA pixel data by copying it from a given array of 8-bit pixel colors.
      
-     - Precondition: Colors in the array must be ordered in the BGRA format. Size of the array must be equal to texture `width * height * 4`.
+     - Precondition: Colors in the array must be ordered in the BGRA format.
+     Size of the array must be equal to texture `width * height * 4`.
      
      - Parameter pixelData: array of pixel colors to fill texture with.
      */
@@ -193,8 +205,10 @@ public final class HistogramTexture: PoolResource, HistogramRendererTarget {
     /**
      Get pixel RGBA color at the specified (x, y) location.
      
-     - Parameter x: pixel's coordinate on the horizontal axis
-     - Parameter y: pixel's coordinate on the vertical axis
+     Top left corner is (0, 0).
+     
+     - Parameter x: pixel's coordinate on the horizontal axis.
+     - Parameter y: pixel's coordinate on the vertical axis.
      
      - Returns: RGBA color as a vector of four 8-bit integers.
      */

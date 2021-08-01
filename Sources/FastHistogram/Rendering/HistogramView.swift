@@ -6,7 +6,7 @@ import Combine
  */
 public class HistogramView: HistogramRendererTarget {
 
-    /// Underlying Metal View
+    /// Underlying Metal View.
     public let metalView: MTKView?
     
     /**
@@ -30,18 +30,18 @@ public class HistogramView: HistogramRendererTarget {
     }
     
     #if os(OSX)
-    /// Underlying UI view
+    /// Underlying UI view.
     public var view: some NSView {
         metalView!
     }
     #else
-    /// Underlying UI view
+    /// Underlying UI view.
     public var view: some UIView {
         metalView!
     }
     #endif
     
-    /// View's render pass descriptor
+    /// View's render pass descriptor.
     public var renderPassDescriptor: MTLRenderPassDescriptor? {
         metalView!.currentRenderPassDescriptor
     }
