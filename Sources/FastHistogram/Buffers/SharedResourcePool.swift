@@ -15,6 +15,8 @@ public class SharedResourcePool<T> where T: PoolResource {
     
     private let semaphore: DispatchSemaphore
     private var resources: [T]
+    // keep references to all resources
+    private let allResources: [T]
     private let syncQueue = DispatchQueue(label: "SharedResourcePoolQueue", qos: .userInteractive)
     
     /**
@@ -25,9 +27,17 @@ public class SharedResourcePool<T> where T: PoolResource {
     init(resources: [T]) {
         self.semaphore = DispatchSemaphore(value: resources.count)
 
+        self.allResources = resources
         self.resources = resources
         for var resource in self.resources {
             resource.pool = self
+        }
+    }
+    
+    deinit {
+        // signal to avoid dispatch_semaphore_dispose crash
+        for _ in 0..<(allResources.count - resources.count) {
+            self.semaphore.signal()
         }
     }
     
